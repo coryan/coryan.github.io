@@ -1,0 +1,24 @@
+# Dependencies
+markdown:         redcarpet
+highligher:       true
+
+# Permalinks
+permalink:        pretty
+
+# Setup
+title:            Digital Lawn
+tagline:          'Ramblings of an not-so-old Programmer'
+description:      'The musings, rants, ramblings, and failings of a not-so-old Programmer.  Still having fun with little coding projects.'
+url:              http://coryan.github.io/
+
+author:
+  name:           'Carlos O&#39Ryan'
+#  url:           http://coryan.github.io
+
+paginate:         5
+
+# Custom vars
+version:          2.0.0
+
+github:
+  repo:           https://github.com/coryan/
