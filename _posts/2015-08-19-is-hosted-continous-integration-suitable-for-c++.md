@@ -1,5 +1,5 @@
 ---
-title: Hosted Continous Integration: Suitable for C++?
+title: Is Hosted Continous Integration Suitable for C++?
 layout: post
 ---
 
