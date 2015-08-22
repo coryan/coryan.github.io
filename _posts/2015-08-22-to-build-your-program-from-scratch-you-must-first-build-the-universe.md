@@ -1,6 +1,7 @@
 ---
 title: To Build Your Program From Scratch First you must Build the Universe
 layout: post
+date: 2015-08-22 13:00
 ---
 
 Given that most hosted continuous integration solutions are based on
@@ -90,25 +91,29 @@ packages on a throwaway virtual machine.
 Having found all the packages we need to simply configure our
 sacrificial VM:
 
-	# Install a tool to easily add PPAs and other sources:
-        sudo apt-get -qq -y install python-software-properties
-        sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
-        sudo add-apt-repository -y ppa:dns/gnu
-	sudo add-apt-repository -y ppa:boost-latest/ppa
-        sudo add-apt-repository -y "deb http://llvm.org/apt/precise/ llvm-toolchain-precise main"
-        sudo add-apt-repository -y "deb http://llvm.org/apt/precise/ llvm-toolchain-precise-3.6 main"
-        # ... add the public key used by llvm.org ...
-        wget -O - http://llvm.org/apt/llvm-snapshot.gpg.key|sudo apt-key add -
+<pre>
+# Install a tool to easily add PPAs and other sources:
+sudo apt-get -qq -y install python-software-properties
+sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+sudo add-apt-repository -y ppa:dns/gnu
+sudo add-apt-repository -y ppa:boost-latest/ppa
+sudo add-apt-repository -y "deb http://llvm.org/apt/precise/ llvm-toolchain-precise main"
+sudo add-apt-repository -y "deb http://llvm.org/apt/precise/ llvm-toolchain-precise-3.6 main"
+# ... add the public key used by llvm.org ...
+wget -O - http://llvm.org/apt/llvm-snapshot.gpg.key|sudo apt-key add -
+</pre>
 
 Once the package sources are configured, we are ready to download the list
 of packages and their dependencies:
 
-	sudo apt-get -qq update
-        sudo apt-get -qq -y install clang-3.8
-        sudo apt-get -qq -y install g++-4.9
-        sudo apt-get -qq -y install boost1.55
-        sudo apt-get -qq -y install autoconf automake autoconf-archive make
-        sudo apt-get -qq -y install git
+<pre>
+sudo apt-get -qq update
+sudo apt-get -qq -y install clang-3.6
+sudo apt-get -qq -y install g++-4.9
+sudo apt-get -qq -y install boost1.55
+sudo apt-get -qq -y install autoconf automake autoconf-archive make
+sudo apt-get -qq -y install git
+</pre>
 
 After 30 years of coding, I am paranoid, I want to know what really
 got installed:
@@ -122,15 +127,14 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 </pre>
 
 <pre>
-clang++-3.8 --version
-Ubuntu clang version 3.8.0-svn245285-1~exp1 (trunk) (based on LLVM 3.8.0)
+$ clang++-3.6 --version
+Ubuntu clang version 3.6.2-svn240577-1~exp1 (branches/release_36) (based on LLVM 3.6.2)
 Target: x86_64-pc-linux-gnu
 Thread model: posix
-InstalledDir: /usr/bin
 </pre>
 
 <pre>
-ld --version
+$ ld --version
 GNU ld (GNU Binutils for Ubuntu) 2.23.1
 Copyright 2012 Free Software Foundation, Inc.
 This program is free software; you may redistribute it under the terms of
@@ -150,10 +154,30 @@ This program built for x86_64-pc-linux-gnu
 </pre>
 
 <pre>
-$ dpkg -s automake | grep ^Version
-Version: 1:1.14-0gnu2~12.04
-$ dpkg -s autoconf | grep ^Version
-Version: 2.69-1gnu1~12.04
+$ automake --version
+automake (GNU automake) 1.14
+Copyright (C) 2013 Free Software Foundation, Inc.
+License GPLv2+: GNU GPL version 2 or later <http://gnu.org/licenses/gpl-2.0.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+
+Written by Tom Tromey <tromey@redhat.com>
+       and Alexandre Duret-Lutz <adl@gnu.org>.
+</pre>
+
+<pre>
+$ autoconf --version
+autoconf (GNU Autoconf) 2.69
+Copyright (C) 2012 Free Software Foundation, Inc.
+License GPLv3+/Autoconf: GNU GPL version 3 or later
+<http://gnu.org/licenses/gpl.html>, <http://gnu.org/licenses/exceptions.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+
+Written by David J. MacKenzie and Akim Demaille.
+</pre>
+
+<pre>
 $ dpkg -s autoconf-archive | grep ^Version
 Version: 20130406-0gnu1~12.04
 </pre>
@@ -166,18 +190,23 @@ Download the Source and Compile
 Now that the development tools are here, download the source code for
 our C++11 library and compile it:
 
-    git clone https://github.com/coryan/Skye
-    ./bootstrap
-    mkdir clang ; cd clang
-    CXX=clang++-3.8 CC=clang-3.8 ../configure --with-boost-libdir=/usr/lib/x86_64-linux-gnu
-    make check
+<pre>
+git clone https://github.com/coryan/Skye
+cd Skye
+./bootstrap
+mkdir clang ; cd clang
+CXX=clang++-3.6 CC=clang-3.6 ../configure --with-boost-libdir=/usr/lib/x86_64-linux-gnu
+make check
+</pre>
 
 Success!  Let's try with gcc:
 
-    cd ..
-    mkdir gcc ; cd gcc
-    CXX=g++-4.9 CC=gcc-4.9 ../configure --with-boost-libdir=/usr/lib/x86_64-linux-gnu
-    make check
+<pre>
+cd ..
+mkdir gcc ; cd gcc
+CXX=g++-4.9 CC=gcc-4.9 ../configure --with-boost-libdir=/usr/lib/x86_64-linux-gnu
+make check
+</pre>
 
 Success again!
 
