@@ -9,11 +9,11 @@ permalink:        pretty
 title:            Digital Lawn
 tagline:          'Ramblings of an not-so-old Programmer'
 description:      'The musings, rants, ramblings, and failings of a not-so-old Programmer.  Still having fun with little coding projects.'
-url:              http://coryan.github.io/
+url:              'http://coryan.github.io/'
 
 author:
-  name:           'Carlos O&#39Ryan'
-#  url:           http://coryan.github.io
+  name:           'Carlos O&#39;Ryan'
+  url:            'http://coryan.github.io'
 
 paginate:         5
 
