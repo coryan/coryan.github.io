@@ -37,6 +37,10 @@ and builds for both gcc and clang with all optimizations.
 
 I added the coveralls.io badge, though the state is shameful at the
 moment.
+I have been trying to get `lcov` and `llvm-cov` to cooperate without
+success, I am interested because clang promises to deliver branch
+coverage, a far more interesting metric than line coverage in my
+opinion.  But this is a nice to have more than a required feature.
 
 ### Ubuntu 12.04 is irritating me.
 
