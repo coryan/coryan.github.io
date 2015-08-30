@@ -49,7 +49,7 @@ require(ggplot2)  # May need to install.packages("ggplot2")
 # then we can plot the triangle function
 
 qplot(x=usec, y=value, color=variable, data=df)
-ggsave(paste0(public.dir, 'triangle.svg'), scale=0.5) ###
+ggsave(paste0(public.dir, 'triangle.svg'), width=8, height=8/1.61) ###
 
 # ![A sampled function, the x-axis goes from 0 to 128, the values \
 # start at -1.0 and grow linearly to 1.0 just before x is equal to \
@@ -71,7 +71,7 @@ df.i <- rbind(df, tmp)
 # let's add the new data to the data.frame()
 
 qplot(x=usec, y=value, color=variable, data=df.i)
-ggsave(paste0(public.dir, 'triangle.and.fft.svg'), scale=0.5) ###
+ggsave(paste0(public.dir, 'triangle.and.fft.svg'), width=8, height=8/1.61) ###
 
 # ![Two triangular functions as before.  One labeled 'T(t)' with much \
 # smaller amplitude. The second, labeled FFT inverse applied to FFT \
@@ -90,7 +90,7 @@ tmp$value <- Re(fft.i)
 tmp$variable <- 'FFT^1(FFT(T))(t)'
 df.i <- rbind(df, tmp)
 qplot(x=usec, y=value, color=variable, data=df.i)
-ggsave(paste0(public.dir, 'triangle.and.fft.scaled.svg'), scale=0.5) ###
+ggsave(paste0(public.dir, 'triangle.and.fft.scaled.svg'), width=8, height=8/1.61) ###
 
 # ![Two triangular functions as before.  One labeled T(t), and a \
 # second labeled FFT inverse applied to FFT \
@@ -115,7 +115,7 @@ to.df <- function(a, name) {
 
 corr.df <- to.df(corr, "(T * T)(t)")
 qplot(x=usec, y=value, color=variable, data=corr.df)
-ggsave(paste0(public.dir, 'correlation.self.svg'), scale=0.5) ###
+ggsave(paste0(public.dir, 'correlation.self.svg'), width=8, height=8/1.61) ###
 
 # ![A sinusoidal wave.  The x axis varies from 0 to 128.  The wave \
 # starts with a high value at around 32, a low value of -32 reached \
@@ -133,7 +133,7 @@ b <- a[((seq(1, length(a)) - 13) %% length(a)) + 1]
 ab.df <- rbind(a.df, to.df(b, "B"))
 qplot(x=usec, y=value, color=variable, data=ab.df) +
   theme(legend.position="bottom")
-ggsave(paste0(public.dir, 'triangles.ab.svg'), scale=0.5) ###
+ggsave(paste0(public.dir, 'triangles.ab.svg'), width=8, height=8/1.61) ###
 
 # ![A graph of two triangular functions, the x-axis is labeled 'usec', \
 # the y-axis is labeled 'value'.  The triangular functions are \
@@ -155,7 +155,7 @@ correlation.df <- function(a, b) {
 corr.ab.df <- to.df(correlation(a, b), "A * B")
 qplot(x=usec, y=value, color=variable, data=corr.ab.df) +
   theme(legend.position="bottom")
-ggsave(paste0(public.dir, 'correlation.ab.svg'), scale=0.5) ###
+ggsave(paste0(public.dir, 'correlation.ab.svg'), width=8, height=8/1.61) ###
 
 # ![Another sinusoidal graph.\
 # The x axis labeled usec, ranging from 0 to 128. \
