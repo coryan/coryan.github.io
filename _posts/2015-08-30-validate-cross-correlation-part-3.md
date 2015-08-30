@@ -38,7 +38,7 @@ qplot(x=usec, y=value, color=variable, data=corr.ac.df) +
   theme(legend.position="bottom")
 {% endhighlight %}
 
-![Another sinusoidal graph.The x axis labeled usec, ranging from 0 to 128. The y axis labeled $$value^2$$, ranging from approximately -30 to 30. The sinusoid has a single period, which peaks around 15, and bottoms at around 75.](/public/correlation.ac.svg "The Cross-Correlation of two time shifted Triangular functions, one with 5% noise.")
+![Another sinusoidal graph.The x axis labeled usec, ranging from 0 to 128. The y axis labeled "value squared, ranging from approximately -30 to 30. The sinusoid has a single period, which peaks around 15, and bottoms at around 75.](/public/correlation.ac.svg "The Cross-Correlation of two time shifted Triangular functions, one with 5% noise.")
 
 We can also check the value of this cross correlation:
 
@@ -71,7 +71,7 @@ qplot(x=usec, y=value, color=variable, data=corr.ad.df) +
   theme(legend.position="bottom")
 {% endhighlight %}
 
-![Another sinusoidal graph.The x axis labeled usec, ranging from 0 to 128. The y axis labeled $$value^2$$, ranging from approximately -30 to 30. The sinusoid has a single period, which peaks around 15, and bottoms at around 75.](/public/correlation.ac.svg "The Cross-Correlation of two time shifted Triangular functions, one with 20% noise.")
+![Another sinusoidal graph.The x axis labeled usec, ranging from 0 to 128. The y axis labeled "value squared", ranging from approximately -30 to 30. The sinusoid has a single period, which peaks around 15, and bottoms at around 75.](/public/correlation.ac.svg "The Cross-Correlation of two time shifted Triangular functions, one with 20% noise.")
 
 And obtain basic statistics about the cross-correlation values:
 
@@ -89,4 +89,74 @@ correlation can deal with uniform noise without problems.
 
 ## Quotes and Square functions
 
+So far we have been using triangular functions because they were
+easy to generate.  Market signals more closely resemble square
+functions: a quote value is valid until it changes.  Moreover,
+market data is not regularly sampled in time.  One might receive no
+updates for several milliseconds, and then receive multiple updates
+in the same microsecond!  But to illustrate how this would work we
+can make our life easy.  Suppose we have the best bid quantity
+sampled every microsecond, and it had the following values:
 
+{% highlight r %}
+S <- c(rep(1000, 100), rep(1100, 100), rep(1200, 56))
+S.df <- to.df(S, "S")
+qplot(x=usec, y=value, color=variable, data=S.df) +
+  ylim(0, max(S.df$value)) +
+  theme(legend.position="bottom")
+{% endhighlight %}
+
+![A graph of a step function. The x-axis is labeled 'usec', it ranges from 0 to 256. The y-axis is labeled 'value', it ranges from 1000 to 1200. The values are labeled 'S'.
+The function has contant value 1000 from 0 to 100, then constant value 1100 from 100 to 200, and then constant value 1200.](/public/square.S.svg "A Step Function.")
+
+We use a similar trick as before to create a time shifted version of
+this signal, and add some noise to it:
+
+{% highlight r %}
+T <- S[((seq(1, length(S)) - 27) %% length(S)) + 1]
+T <- T + runif(length(T), -10, 10)
+ST.df <- rbind(S.df, to.df(T, "T"))
+qplot(x=usec, y=value, color=variable, data=ST.df) +
+  ylim(0, max(ST.df$value)) +
+  theme(legend.position="bottom")
+{% endhighlight %}
+
+![A graph of two step functions. The x-axis is labeled 'usec', it ranges from 0 to 256. The y-axis is labeled 'value', it ranges from 1000 to 1200. The values are labeled 'S' and 'T'.
+The 'S' values has contant value 1000 from 0 to 100, then constant value 1100 from 100 to 200, and then constant value 1200.The 'T' values are the 'S' values delayed by approximately 30 microseconds, with some amount of noise.](/public/squares.ST.svg "A Step Function.")
+
+And as before we can compute the cross-correlation:
+
+{% highlight r %}
+corr.ST.df <- correlation.df(S, T, "S * T")
+qplot(x=usec, y=value, color=variable, data=corr.ST.df) +
+  scale_y_continuous(name=expression(value^2)) +
+  theme(legend.position="bottom")
+{% endhighlight %}
+
+![A graph with a peak around 30.The x axis labeled usec, ranging from 0 to 256. The y axis labeled "value squared", ranging from approximately 299500000 to over 301500000. The values start at around 307500000 grow linearly to the peak at over 301500000, the decreate linearly for some time, and and then decrease in 2 apparently linear segments. The values are basically constant between 120 and 180. Then grow again in two linear segments finishing just below 301000000.](/public/correlation.ST.svg "The Cross-Correlation of Step functions, one with some noise.")
+
+And obtain basic statistics about the cross-correlation values:
+
+{% highlight rconsole %}
+> which.max(corr.ST.df$value)
+[1] 27
+> summary(corr.ST.df$value)
+{% highlight r %}
+ Min.   1st Qu.    Median      Mean   3rd Qu.      Max. 
+{% endhighlight %}
+299500000 299600000 299900000 300200000 300700000 301600000 
+{% endhighlight %} 
+
+One problem is that the different between the peak and the minimum
+is not that high, in relative terms it is only 0.7%.
+
+## Conclusion
+
+In these last three posts we have reviewed how cross-correlations
+work for simple triangular functions, triangular functions with some
+noise and finally for step functions with noise.
+We observed that some FFT libraries avoid computation by not
+rescaling, which can present problems interpreting the results.
+We also observed that the result of the cross-correlation is a
+measure of area, which can have very large values for some functions
+and it would also be desirable to rescale.

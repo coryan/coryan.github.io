@@ -125,6 +125,11 @@ ggsave(paste0(public.dir, 'correlation.self.svg'), width=8, height=8/1.61) ###
 # to 128.](/public/correlation.self.svg "The cross-correlation of a \
 # triangular function with itself.")
 
+# Notice that the y-axis is labeled $$value^2$$, this is because the
+# result of a cross correlation is a measure of area.  That means that
+# as we process data with larger values the cross-correlation will
+# grow with the square of the value too.
+
 # ### More interesting cross-correlations
 
 # Let's see how the correlation works with a time shifted signal

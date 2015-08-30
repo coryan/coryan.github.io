@@ -127,6 +127,11 @@ qplot(x=usec, y=value, color=variable, data=corr.df) +
 
 ![A sinusoidal wave.  The x axis varies from 0 to 128.  The wave starts with a high value at around 32, a low value of -32 reached when x is approximately 64, and growing back to +32 when x is equal to 128.](/public/correlation.self.svg "The cross-correlation of a triangular function with itself.")
 
+Notice that the y-axis is labeled $$value^2$$, this is because the
+result of a cross correlation is a measure of area.  That means that
+as we process data with larger values the cross-correlation will
+grow with the square of the value too.
+
 
 Let's see how the correlation works with a time shifted signal
 
