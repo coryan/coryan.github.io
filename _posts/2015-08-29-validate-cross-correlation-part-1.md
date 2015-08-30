@@ -169,7 +169,7 @@ The key observation is that we can estimate the cross-correlation
 using the Fast Fourier transform $$\mathcal{F}$$:
 
 $$\tau_{delay} = \arg \max_{t}(
-    \mathcal{F}^{-1}({\mathcal{F}(f)} \cdot {\mathcal{F}(g)})(t))$$
+    \mathcal{F}^{-1}({\mathcal{F}(f)}^{*} \cdot {\mathcal{F}(g)})(t))$$
 
 ## Enough Math! Show me how it Looks!
 
