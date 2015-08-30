@@ -114,7 +114,9 @@ to.df <- function(a, name) {
 # and plot the results
 
 corr.df <- to.df(corr, "(T * T)(t)")
-qplot(x=usec, y=value, color=variable, data=corr.df)
+qplot(x=usec, y=value, color=variable, data=corr.df) +
+  scale_y_continuous(name=expression(value^2)) +
+  theme(legend.position="bottom")
 ggsave(paste0(public.dir, 'correlation.self.svg'), width=8, height=8/1.61) ###
 
 # ![A sinusoidal wave.  The x axis varies from 0 to 128.  The wave \
@@ -149,17 +151,18 @@ correlation <- function(a, b) {
   inv <- Re(fft( Conj(fft(a)) * fft(b), inverse=TRUE))
   return(inv / length(a))
 }
-correlation.df <- function(a, b) {
-  return(to.df(correlation(a, b)))
+correlation.df <- function(a, b, name) {
+  return(to.df(correlation(a, b), name))
 }
-corr.ab.df <- to.df(correlation(a, b), "A * B")
+corr.ab.df <- correlation.df(a, b, "A * B")
 qplot(x=usec, y=value, color=variable, data=corr.ab.df) +
+  scale_y_continuous(name=expression(value^2)) +
   theme(legend.position="bottom")
 ggsave(paste0(public.dir, 'correlation.ab.svg'), width=8, height=8/1.61) ###
 
 # ![Another sinusoidal graph.\
 # The x axis labeled usec, ranging from 0 to 128. \
-# The y axis labeled value, ranging from approximately -30 to 30. \
+# The y axis labeled $$value^2$$, ranging from approximately -30 to 30. \
 # The sinusoid has a single period, \
 # which peaks around 15, and bottoms at around 75.](\
 # /public/correlation.ab.svg "The Cross-Correlation of two time \

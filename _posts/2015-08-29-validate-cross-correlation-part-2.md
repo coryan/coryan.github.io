@@ -120,7 +120,9 @@ and plot the results
 
 {% highlight r %}
 corr.df <- to.df(corr, "(T * T)(t)")
-qplot(x=usec, y=value, color=variable, data=corr.df)
+qplot(x=usec, y=value, color=variable, data=corr.df) +
+  scale_y_continuous(name=expression(value^2)) +
+  theme(legend.position="bottom")
 {% endhighlight %}
 
 ![A sinusoidal wave.  The x axis varies from 0 to 128.  The wave starts with a high value at around 32, a low value of -32 reached when x is approximately 64, and growing back to +32 when x is equal to 128.](/public/correlation.self.svg "The cross-correlation of a triangular function with itself.")
@@ -148,15 +150,16 @@ correlation <- function(a, b) {
   inv <- Re(fft( Conj(fft(a)) * fft(b), inverse=TRUE))
   return(inv / length(a))
 }
-correlation.df <- function(a, b) {
-  return(to.df(correlation(a, b)))
+correlation.df <- function(a, b, name) {
+  return(to.df(correlation(a, b), name))
 }
-corr.ab.df <- to.df(correlation(a, b), "A * B")
+corr.ab.df <- correlation.df(a, b, "A * B")
 qplot(x=usec, y=value, color=variable, data=corr.ab.df) +
+  scale_y_continuous(name=expression(value^2)) +
   theme(legend.position="bottom")
 {% endhighlight %}
 
-![Another sinusoidal graph.The x axis labeled usec, ranging from 0 to 128. The y axis labeled value, ranging from approximately -30 to 30. The sinusoid has a single period, which peaks around 15, and bottoms at around 75.](/public/correlation.ab.svg "The Cross-Correlation of two time shifted Triangular functions.")
+![Another sinusoidal graph.The x axis labeled usec, ranging from 0 to 128. The y axis labeled $$value^2$$, ranging from approximately -30 to 30. The sinusoid has a single period, which peaks around 15, and bottoms at around 75.](/public/correlation.ab.svg "The Cross-Correlation of two time shifted Triangular functions.")
 
 The graphs are pretty, but exactly where is the peak?
 
