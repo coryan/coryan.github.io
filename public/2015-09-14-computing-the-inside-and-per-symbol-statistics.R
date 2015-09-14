@@ -143,7 +143,7 @@ ggsave(paste0(public.dir, 'all.rate.svg'), width=8, height=8/1.61) ###
 # varies from 0 to 200,000,000.  The Y axis is labeled \
 # 'Events/msec @ p99.9' and varies from 0 to 250.  \
 # All the points but one are clustered around the origin.]\
-# (/public/all.raw.svg "Per millisecond message rates at the 99.9 \
+# (/public/all.rate.svg "Per millisecond message rates at the 99.9 \
 # percentile.")
 
 # There is a clear outlier, argh, the `itch5inside` tool also reports

@@ -133,7 +133,7 @@ ggplot(data=raw, aes(x=NSamples, y=p999RatePerMSec)) +
   xlab("Total Event Count")
 {% endhighlight %}
 
-![A scatter plot.  The X axis is labeled 'Total Event Count' and varies from 0 to 200,000,000.  The Y axis is labeled 'Events/msec @ p99.9' and varies from 0 to 250.  All the points but one are clustered around the origin.](/public/all.raw.svg "Per millisecond message rates at the 99.9 percentile.")
+![A scatter plot.  The X axis is labeled 'Total Event Count' and varies from 0 to 200,000,000.  The Y axis is labeled 'Events/msec @ p99.9' and varies from 0 to 250.  All the points but one are clustered around the origin.](/public/all.rate.svg "Per millisecond message rates at the 99.9 percentile.")
 
 There is a clear outlier, argh, the `itch5inside` tool also reports
 the metrics aggregated across all symbols, that must be the
