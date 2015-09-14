@@ -54,7 +54,7 @@ ggplot(data=symbols, aes(x=NSamples)) + geom_histogram(binwidth=bw) +
   xlab("Total Event Count")
 {% endhighlight %}
 
-![A histogram plot.  The X axis is labeled 'Total Event Count' and varies from 0 to almost 3,000,000.  The Y axis is labeled 'Number of Symbols' and varies from 0 to 5000.  The highest values are at the beginning, and the values drop in a seemingly exponential curve.](/public/nsamples.linear.svg "Symbol count per total message count."){: style="width: 95%" }
+![A histogram plot.  The X axis is labeled 'Total Event Count' and varies from 0 to almost 3,000,000.  The Y axis is labeled 'Number of Symbols' and varies from 0 to 5000.  The highest values are at the beginning, and the values drop in a seemingly exponential curve.](/public/nsamples.linear.svg "Symbol count per total message count.")
 
 That graph appears exponential at first sight, but one can easily be
 fooled, this is what goodness of fit tests where invented for:
@@ -98,7 +98,7 @@ ggplot(data=df, aes(x=count, fill=variable)) +
 {% endhighlight %}
 
 ![Two overlapping histograms. The X axis is labeled 'Total Event Count' and varies from 0 to 6.  The Y axis is labeled 'Number of Symbols' and varies from 0 to 2,000.  The histogram labeled 'Reference' has a much higher peak than the
-histogram labeled 'Actual'.](/public/nsamples.log10.svg "Compare actual distribution against best 'Geometric' fit."){: style="width: 95%" }
+histogram labeled 'Actual'.](/public/nsamples.log10.svg "Compare actual distribution against best 'Geometric' fit.")
 
 Clearly not the same distribution, but using math to verify this
 makes me feel better.
@@ -133,7 +133,7 @@ ggplot(data=raw, aes(x=NSamples, y=p999RatePerMSec)) +
   xlab("Total Event Count")
 {% endhighlight %}
 
-![A scatter plot.  The X axis is labeled 'Total Event Count' and varies from 0 to 200,000,000.  The Y axis is labeled 'Events/msec @ p99.9' and varies from 0 to 250.  All the points but one are clustered around the origin.](/public/all.raw.svg "Per millisecond message rates at the 99.9 percentile."){: style="width: 95%" }
+![A scatter plot.  The X axis is labeled 'Total Event Count' and varies from 0 to 200,000,000.  The Y axis is labeled 'Events/msec @ p99.9' and varies from 0 to 250.  All the points but one are clustered around the origin.](/public/all.raw.svg "Per millisecond message rates at the 99.9 percentile.")
 
 There is a clear outlier, argh, the `itch5inside` tool also reports
 the metrics aggregated across all symbols, that must be the
@@ -164,7 +164,7 @@ ggplot(data=symbols, aes(x=NSamples, y=p999RatePerMSec)) +
   xlab("Total Event Count")
 {% endhighlight %}
 
-![A scatter plot.  The X axis is labeled 'Total Event Count' and varies from 0 to around 2,500,000.  The Y axis is labeled 'Events/msec @ p99.9' and varies from 0 to 10.  All the points but one are clustered around the origin.](/public/symbols.rate.svg "Per millisecond message rates at the 99.9 percentile."){: style="width: 95%" }
+![A scatter plot.  The X axis is labeled 'Total Event Count' and varies from 0 to around 2,500,000.  The Y axis is labeled 'Events/msec @ p99.9' and varies from 0 to 10.  All the points but one are clustered around the origin.](/public/symbols.rate.svg "Per millisecond message rates at the 99.9 percentile.")
 
 Finally it would be nice to know what the top symbols are, so we
 filter the top50 and plot them against this data:
@@ -179,7 +179,7 @@ ggplot(data=symbols, aes(x=NSamples, y=p999RatePerMSec)) +
   xlab("Total Event Count")
 {% endhighlight %}
 
-![A scatter plot.  The X axis is labeled 'Total Event Count' and varies from 0 to 2,500,000.  The Y axis is labeled 'Events/msec @ p99.9' and varies from 0 to 10.  The top points are labeled VXX, SPY, QQQ, .](/public/symbols.labeled.rate.svg "Per millisecond message rates at the 99.9 percentile."){: style="width: 95%" }
+![A scatter plot.  The X axis is labeled 'Total Event Count' and varies from 0 to 2,500,000.  The Y axis is labeled 'Events/msec @ p99.9' and varies from 0 to 10.  The top points are labeled VXX, SPY, QQQ, .](/public/symbols.labeled.rate.svg "Per millisecond message rates at the 99.9 percentile.")
 
 ## What Does this Mean?
 

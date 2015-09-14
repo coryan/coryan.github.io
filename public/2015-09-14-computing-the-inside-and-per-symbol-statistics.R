@@ -58,7 +58,7 @@ ggsave(paste0(public.dir, 'nsamples.linear.svg'), width=8, height=8/1.61) ###
 # The highest values are at the beginning, and the values drop in a \
 # seemingly exponential curve.]\
 # (/public/nsamples.linear.svg "Symbol count per total message \
-# count."){: style="width: 95%" }
+# count.")
 
 # That graph appears exponential at first sight, but one can easily be
 # fooled, this is what goodness of fit tests where invented for:
@@ -105,7 +105,7 @@ ggsave(paste0(public.dir, 'nsamples.log10.svg'), width=8, height=8/1.61) ###
 # The histogram labeled 'Reference' has a much higher peak than the
 # histogram labeled 'Actual'.]\
 # (/public/nsamples.log10.svg "Compare actual distribution against \
-# best 'Geometric' fit."){: style="width: 95%" }
+# best 'Geometric' fit.")
 
 # Clearly not the same distribution, but using math to verify this
 # makes me feel better.
@@ -144,7 +144,7 @@ ggsave(paste0(public.dir, 'all.rate.svg'), width=8, height=8/1.61) ###
 # 'Events/msec @ p99.9' and varies from 0 to 250.  \
 # All the points but one are clustered around the origin.]\
 # (/public/all.raw.svg "Per millisecond message rates at the 99.9 \
-# percentile."){: style="width: 95%" }
+# percentile.")
 
 # There is a clear outlier, argh, the `itch5inside` tool also reports
 # the metrics aggregated across all symbols, that must be the
@@ -175,7 +175,7 @@ ggsave(paste0(public.dir, 'symbols.rate.svg'), width=8, height=8/1.61) ###
 # 'Events/msec @ p99.9' and varies from 0 to 10.  \
 # All the points but one are clustered around the origin.]\
 # (/public/symbols.rate.svg "Per millisecond message rates at the 99.9 \
-# percentile."){: style="width: 95%" }
+# percentile.")
 
 # Finally it would be nice to know what the top symbols are, so we
 # filter the top50 and plot them against this data:
@@ -194,7 +194,7 @@ ggsave(paste0(public.dir, 'symbols.labeled.rate.svg'), width=8, height=8/1.61) #
 # 'Events/msec @ p99.9' and varies from 0 to 10.  \
 # The top points are labeled VXX, SPY, QQQ, .]\
 # (/public/symbols.labeled.rate.svg "Per millisecond message rates \
-# at the 99.9 percentile."){: style="width: 95%" }
+# at the 99.9 percentile.")
 
 # ## What Does this Mean?
 
