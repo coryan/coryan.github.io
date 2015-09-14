@@ -1,0 +1,8 @@
+/*
+ * Make images in posts scale to 100% of the width.  Because most of
+ * my images are SVG, they tend to have predefined width in inches.
+ * This makes them responsive to the browsing window size.
+ */
+.post img {
+    width: 100%;
+}
