@@ -20,7 +20,8 @@
 
 # The code is already available on
 # [github.com](https://github.com/coryan/jaybeams)
-# the tool is unimaginatibly called "itch5inside".  It outputs the
+# the tool called `itch5inside`, clearly I lack imagination.
+# It outputs the
 # inside changes as an ASCII file (which can be compressed on the
 # fly), so we can use it later as a sample input into our analysis.
 # Optionally, it also outputs to stdout the per-symbol statistics.
@@ -56,58 +57,173 @@ ggsave(paste0(public.dir, 'nsamples.linear.svg'), width=8, height=8/1.61) ###
 # 'Number of Symbols' and varies from 0 to 5000.  \
 # The highest values are at the beginning, and the values drop in a \
 # seemingly exponential curve.]\
-# (/public/nsamples.linear.svg "Symbol count per total message count.")
+# (/public/nsamples.linear.svg "Symbol count per total message \
+# count."){: style="width: 95%" }
 
+# That graph appears exponential at first sight, but one can easily be
+# fooled, this is what goodness of fit tests where invented for:
+require(MASS)
+fit <- fitdistr(symbols$NSamples, "geometric")
+ref <- rgeom(length(symbols$NSamples), prob=fit$estimate)
+control <- abs(rnorm(length(symbols$NSamples)))
+chisq.test(symbols$NSamples, p = ref/sum(ref))
 
-ggplot(data=symbols, aes(x=NSamples)) + geom_density() +
+# {% highlight rout %}
+# 
+# 	Chi-squared test for given probabilities
+# 
+# data:  symbols$NSamples
+# X-squared = 6330400000, df = 8171, p-value < 2.2e-16
+# 
+# Warning message:
+# In chisq.test(symbols$NSamples, p = ref/sum(ref)) :
+#   Chi-squared approximation may be incorrect
+# {% endhighlight %}
+
+# That p-value is extremely low, we cannot reject the Null
+# Hypothesis, the `symbol$NSamples` values do not come from the
+# geometric distribution that best fits the data.
+# We can also visualize the distributions in log scale to make this
+# apparent:
+df.ref <- data.frame(count=log(ref, 10))
+df.ref$variable <- 'Reference'
+df.actual <- data.frame(count=log(symbols$NSamples, 10))
+df.actual$variable <- 'Actual'
+df <- rbind(df.ref, df.actual)
+ggplot(data=df, aes(x=count, fill=variable)) +
+  geom_histogram(alpha=0.5) +
+  scale_fill_brewer(palette="Set1") +
   theme(legend.position="bottom") +
-  scale_x_log10() +
   ylab("Number of Symbols") +
   xlab("Total Event Count")
+ggsave(paste0(public.dir, 'nsamples.log10.svg'), width=8, height=8/1.61) ###
 
-NSamples <- sort(unique(symbols$NSamples), decreasing=TRUE)
-ggplot(x=NSamples, binwidth=(range[2] - range[1])/100)
-+ geom_histogram(binwidth=1) +
-  theme(legend.position="bottom") +
-  ylab("Number of Symbols") +
-  xlab("Total Event Count")
+# ![Two overlapping histograms. \
+# The X axis is labeled 'Total Event Count' and \
+# varies from 0 to 6.  The Y axis is labeled \
+# 'Number of Symbols' and varies from 0 to 2,000.  \
+# The histogram labeled 'Reference' has a much higher peak than the
+# histogram labeled 'Actual'.]\
+# (/public/nsamples.log10.svg "Compare actual distribution against \
+# best 'Geometric' fit."){: style="width: 95%" }
 
+# Clearly not the same distribution, but using math to verify this
+# makes me feel better.
+# In any case, whether the distribution is geometric or not does not
+# matter much, clearly there is a small subset of the securities that
+# have much higher message rates than others.
+# We want to find out if any security has such high rates as to make
+# them unusable, or very challenging.
 
-fit <- fitdistr(symbols$NSamples, densfun="exponential")
+# The `itch5inside` collects per-symbol message rates, actually it
+# collects message rates at different timescales (second, millisecond
+# and microsecond), as well as the distribution of processing times to
+# build the book, and the distribution of time in between messages 
+# (which I call "inter-arrival time", because I cannot think of a
+# cooler name).
+# Well, the tool does not exactly report the distributions, it reports
+# key quantiles, such as the minimum, the first quartile, and the 90th
+# percentile.
+# The actual quantiles vary per metric, but for our immediate purposes
+# maybe we can get the p99.9 of the event rate at the millisecond
+# timescale.
+# A brief apology for the p99.9 notation, we used this shorthand in a
+# previous job for "the 99.9-th percentile", and got used to it.
 
-# We pick the Top50 symbols by the total number of inside changes for
-# the day, and plot the results:
-top50.raw <- raw[head(order(raw$NSamples, decreasing=TRUE), n=50),]
-ggplot(data=top50.raw, aes(x=NSamples, y=p999RatePerMSec)) +
-  geom_text(aes(label=Name), angle=45, color="blue", size=2.5) +
+# Let's plot the p99.9 events/msec rate against the total number of
+# messages per second:
+ggplot(data=raw, aes(x=NSamples, y=p999RatePerMSec)) +
   geom_point(alpha=0.5) +
   theme(legend.position="bottom") +
   ylab("Events/msec @ p99.9") +
   xlab("Total Event Count")
-ggsave(paste0(public.dir, 'top50.raw.svg'), width=8, height=8/1.61) ###
+ggsave(paste0(public.dir, 'all.rate.svg'), width=8, height=8/1.61) ###
 
 # ![A scatter plot.  The X axis is labeled 'Total Event Count' and \
 # varies from 0 to 200,000,000.  The Y axis is labeled \
 # 'Events/msec @ p99.9' and varies from 0 to 250.  \
-# All the points but one are clustered around the origin, the only \
-# extreme is labeled '__aggregate__'.]\
-# (/public/top50.raw.svg "Per millisecond message rates at the 99.9 \
-# percentile.")
+# All the points but one are clustered around the origin.]\
+# (/public/all.raw.svg "Per millisecond message rates at the 99.9 \
+# percentile."){: style="width: 95%" }
 
-# This graph shows that the aggregate message rate is much higher than
-# any per-symbol rate.  Yes, the distribution of total messages per
-# symbol is 
-# A brief apology for the p99.99 notation, we used this shorthand in a
-# previous job for "the 99.99-th percentile", and got used to it.
+# There is a clear outlier, argh, the `itch5inside` tool also reports
+# the metrics aggregated across all symbols, that must be the
+# problem:
 
-symbols <- subset(raw, Name != '__aggregate__')
-top50 <- symbols[head(order(symbols$NSamples, decreasing=TRUE), n=50),]
-ggplot(data=top50, aes(x=NSamples, y=p999RatePerMSec)) +
-  geom_text(aes(label=Name), angle=45, color="blue", size=2.5) +
+top5.raw <- raw[head(order(raw$NSamples, decreasing=TRUE), n=5),]
+top5.raw[,c('Name', 'NSamples')]
+# {% highlight rout %}
+#               Name  NSamples
+# 8173 __aggregate__ 206622013
+# 6045           QQQ   2604819
+# 7814           VXX   2589224
+# 6840           SPY   2457820
+# 3981           IWM   1638988
+# {% endhighlight %}
+
+# Of course it was, let's just plot the symbols without the aggregate
+# metrics:
+ggplot(data=symbols, aes(x=NSamples, y=p999RatePerMSec)) +
   geom_point(alpha=0.5) +
   theme(legend.position="bottom") +
   ylab("Events/msec @ p99.9") +
   xlab("Total Event Count")
+ggsave(paste0(public.dir, 'symbols.rate.svg'), width=8, height=8/1.61) ###
 
+# ![A scatter plot.  The X axis is labeled 'Total Event Count' and \
+# varies from 0 to around 2,500,000.  The Y axis is labeled \
+# 'Events/msec @ p99.9' and varies from 0 to 10.  \
+# All the points but one are clustered around the origin.]\
+# (/public/symbols.rate.svg "Per millisecond message rates at the 99.9 \
+# percentile."){: style="width: 95%" }
 
+# Finally it would be nice to know what the top symbols are, so we
+# filter the top50 and plot them against this data:
+top50 <- symbols[head(order(symbols$NSamples, decreasing=TRUE), n=50),]
+ggplot(data=symbols, aes(x=NSamples, y=p999RatePerMSec)) +
+  geom_point(alpha=0.5, size=1) +
+  geom_text(data=top50, aes(x=NSamples, y=p999RatePerMSec, label=Name),
+            angle=45, color="DarkRed", size=2.8) +
+  theme(legend.position="bottom") +
+  ylab("Events/msec @ p99.9") +
+  xlab("Total Event Count")
+ggsave(paste0(public.dir, 'symbols.labeled.rate.svg'), width=8, height=8/1.61) ###
 
+# ![A scatter plot.  The X axis is labeled 'Total Event Count' and \
+# varies from 0 to 2,500,000.  The Y axis is labeled \
+# 'Events/msec @ p99.9' and varies from 0 to 10.  \
+# The top points are labeled VXX, SPY, QQQ, .]\
+# (/public/symbols.labeled.rate.svg "Per millisecond message rates \
+# at the 99.9 percentile."){: style="width: 95%" }
+
+# ## What Does this Mean?
+
+# We have established that inside changes are far more manageable, we
+# probably need to track less than the top 50 symbols and those do not
+# seem to see more than 10 messages in a millisecond very often.
+# We still need to be fairly efficient, in those peak milliseconds we
+# might have as little as 100 microseconds to process a single event.
+
+# ## What Next?
+
+# I did write a FFTW time delay estimator and benchmarked it, the
+# results are recorded in the github
+# [issue](https://github.com/coryan/jaybeams/issues/7).
+# On my
+# (somewhat old) workstations it takes 27 microseconds to analyse a
+# sequence of 2,048 points, which I think would be the minimum for
+# market data feeds.  Considering that we need to analyze 4 signals
+# per symbol (bid and offer, price and size for each), and we only
+# have a 100 microsecond budget per symbol (see above), we find
+# ourselves without any headroom, even if we did not have to
+# analyze 20 or more symbols at a time to monitor all the different
+# channels that some market feeds use.
+
+# So we need to continue exploring GPUs as a solution to the problem,
+# I recently ran across [VexCL](https://github.com/ddemidov/vexcl),
+# which may save me a lot of tricky writing of code.
+# VexCL uses template expressions to create complex kernels and
+# optimize the computations at a high level.
+# I think my future involves benchmarking this library against some
+# pretty raw OpenCL pipelines to see how those template expressions do
+# in this case.
