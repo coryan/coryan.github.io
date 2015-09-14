@@ -27,12 +27,12 @@
 # Optionally, it also outputs to stdout the per-symbol statistics.
 # I have made the statistics available
 # [on this very blog](/public/NASDAQ-ITCH.csv)
-# in case you want to analyse them.
+# in case you want to analyze them.
 
 # In this post we will just make some observations about the expected
 # message rates.
-# First we load the data, you can set public.dir to
-# 'https://coryan.github.io/public' to download the data directly from
+# First we load the data, you can set `public.dir` to
+# `https://coryan.github.io/public` and download the data directly from
 # the Internet, and then create a separate data set that does not
 # include the aggregate statistics.
 public.dir <- paste0(Sys.getenv('HOME'), '/coryan.github.io/public/') ###
@@ -83,8 +83,10 @@ chisq.test(symbols$NSamples, p = ref/sum(ref))
 # That p-value is extremely low, we cannot reject the Null
 # Hypothesis, the `symbol$NSamples` values do not come from the
 # geometric distribution that best fits the data.
-# We can also visualize the distributions in log scale to make this
-# apparent:
+# Also notice that your values might be different, in fact, they
+# should be different as the reference data was generated at random.
+# We can also visualize the distributions in log scale to make the
+# mismatch more apparent:
 df.ref <- data.frame(count=log(ref, 10))
 df.ref$variable <- 'Reference'
 df.actual <- data.frame(count=log(symbols$NSamples, 10))
@@ -210,7 +212,7 @@ ggsave(paste0(public.dir, 'symbols.labeled.rate.svg'), width=8, height=8/1.61) #
 # results are recorded in the github
 # [issue](https://github.com/coryan/jaybeams/issues/7).
 # On my
-# (somewhat old) workstations it takes 27 microseconds to analyse a
+# (somewhat old) workstations it takes 27 microseconds to analyze a
 # sequence of 2,048 points, which I think would be the minimum for
 # market data feeds.  Considering that we need to analyze 4 signals
 # per symbol (bid and offer, price and size for each), and we only
