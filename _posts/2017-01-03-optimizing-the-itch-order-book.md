@@ -9,9 +9,10 @@ anything interesting to report.  Well, maybe a lot of negative
 reports, which are interesting and should be published, but see above
 about laziness.
 
-Recently my friend Gabriel implemented a really cool optimization on
-the ITCH-5.0 order book I had implemented, which I thought should be
-documented somewhere.  His work inspired me to look further into
+Recently my friend [Gabriel](https://github.com/GFariasR/)
+implemented a really cool optimization on the ITCH-5.0 order book I
+had implemented, which I thought should be documented somewhere.
+His work inspired me to look further into
 benchmarking and how to decide if a code change has actually improved
 anything.
 
