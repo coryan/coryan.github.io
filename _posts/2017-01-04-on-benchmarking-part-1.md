@@ -16,7 +16,7 @@ all the discussions in the literature as to the sad state of rigor
 the software engineering (or computer science if you prefer) when it
 comes to designing, reporting, and evaluating performance experiments.
 
-I will limit myself at describing to showing one example on how to
+I will limit myself to showing one example on how to
 design a performance experiment as rigorously as I know how.
 I propose to describe the pitfalls that I try to avoid,
 and how I avoid them.
