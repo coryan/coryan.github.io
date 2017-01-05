@@ -119,7 +119,7 @@ System configuration beyond the base image is captured in the
 
 {% highlight r %}
 require(ggplot2)
-# baseline.file <- 'http://coryan.github.io/public/2017-01-03-bm_order_book.baseline.csv'
+baseline.file <- 'http://coryan.github.io/public/2017-01-03-bm_order_book.baseline.csv'
 data <- read.csv(
     baseline.file, header=FALSE, col.names=c('testcase', 'nanoseconds'),
     comment.char='#')
