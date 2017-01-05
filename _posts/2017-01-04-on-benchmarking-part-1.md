@@ -212,7 +212,7 @@ are the subject of a future post.
 ## Notes
 
 In this post we have referred all links to a specific version
-([eabc035fc23db078e7e6b6adbc26c08e762f37b3](https://github.com/coryan/jaybeams/tree/eabc035fc23db078e7e6b6adbc26c08e762f37b3)
+([eabc035fc23db078e7e6b6adbc26c08e762f37b3](https://github.com/coryan/jaybeams/tree/eabc035fc23db078e7e6b6adbc26c08e762f37b3))
 of the code.
 Links to the current version are more succinct, and future readers may
 find that bugs in the old code have been fixed in newer versions.
