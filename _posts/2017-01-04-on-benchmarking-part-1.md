@@ -191,12 +191,15 @@ decisions impact the validity of the results.
 That is their privilege, and in fact they might be correct.
 My duty is to disclose the assumptions, and explain myself to the
 reader.
-A readers that disagrees is welcome to reproduce the experiment, or
+A reader that disagrees is welcome to reproduce the experiment, or
 design a better one and show that the analysis was incorrect.
 
-This is the basis of the scientific (and good engineering) process at
-work.  We disclose our work, we are rigorous in our descriptions,
+This is the how the scientific process (and good engineering) works.
+We disclose our work, we are rigorous in our descriptions,
 future engineers improve on that work to produce even better systems.
+There is no shame in making assumptions to allow the work to be completed,
+we just need to state them clearly and qualify our conclusions on the
+basis of those assumptions.
 
 ## Benchmark Setup
 
