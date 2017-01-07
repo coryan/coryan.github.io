@@ -322,6 +322,16 @@ We believe that the systems under consideration are not subject to
 substantial memory pressure or I/O load, and thus will not benefit
 from the additional setting.
 
+Linux 4.7 includes `schedutil` a new CPU frequency scaling governor
+based on information provided by the scheduler
+[[7]](https://kernelnewbies.org/Linux_4.7).
+Initial reports indicate that it performs almost as well as the
+`performance` governor.
+It would be interesting to see if this holds under statistical
+scrutiny, however, for our purposes the `performance` scheduler is a
+better choice as we are willing to forgo the power efficiency of a
+intelligent governor in favor of the predictability of our results.
+
 ## Notes
 
 The data in this post was generated using a shell script,
