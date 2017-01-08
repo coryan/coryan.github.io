@@ -71,8 +71,10 @@ This is a $$O(1)$$ operation, which simply updates the indices.
 If a `reduce_order` operation sets the value to zero, the data
 structure needs to search backwards through the vector until it finds
 a non-zero value.
-This is potentially a $$O(vector.size())$$ operation, but we expect
-that over 90% of these searches finish in less than $$14$$ steps.
+This is a $$O(vector.size())$$ operation, but we expect
+that over 90% of these searches finish in less than $$14$$ steps,
+and in practice no more than $$vector.size() / 2$$ elements need to be
+moved.
 
 In rare occassions, we expect the vector to be full of zeroes, and we
 need to "move" values from the map into the vector.  This
@@ -85,15 +87,14 @@ be linear on the range size.
 
 Sometimes we will also need to move the `tk_inside` pointer beyond the
 capacity of the vector.  In this case we first make room by moving the
-first $$vector.size / 2$$ elements from the vector into the map.
+as many as $$vector.size$$ elements from the vector into the map.
 This can also be implemented as a amortized $$O(vector.size)$$
 operation, because all the insertions happen at the same location, and
 `std::map::emplace_hint` is guaranteed to be amortized constant time.
 
 In short, most of the operations should execute in a short constant
 time that depends on the detail of their implementation.
-Sometimes, less than 99.9% of the time if the array has more than 4500
-elements, we need to perform operations that are linear on the size of
+Sometimes, we need to perform operations that are linear on the size of
 the array.
 
 We want to make some change this class so it can process a ITCH-5.0
@@ -222,3 +223,6 @@ find that bugs in the old code have been fixed in newer versions.
 We prefer to use links to fixed versions because it makes the
 references and links *reproducible*.
 
+> Updates: Gabriel caught a mistake in my complexity analysis, the O()
+> bounds were correct, but I was playing fast and lose with the
+> constant factors.
