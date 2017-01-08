@@ -1,7 +1,7 @@
 ---
 layout: post
 title: On Benchmarking, Part 2
-date: 2017-01-08 05:00
+date: 2017-01-08 04:00
 ---
 
 > This is an article in a long series, you may want to start from the
