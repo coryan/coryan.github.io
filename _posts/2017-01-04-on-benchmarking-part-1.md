@@ -223,6 +223,6 @@ find that bugs in the old code have been fixed in newer versions.
 We prefer to use links to fixed versions because it makes the
 references and links *reproducible*.
 
-> Updates: Gabriel caught a mistake in my complexity analysis, the O()
-> bounds were correct, but I was playing fast and lose with the
-> constant factors.
+> Updates: [Gabriel](https://github.com/gfariasr) caught a mistake in
+> my complexity analysis, the O() bounds were correct, but I was
+> playing fast and lose with the constant factors.
