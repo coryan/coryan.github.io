@@ -9,7 +9,7 @@ date: 2017-01-08 04:00
 > in sequence.
 
 In our [previous post]({{previous.post.url}}) we discussed the
-`array_base_order_book_side<>` template class in detail,
+`array_based_order_book_side<>` template class in detail,
 and outlined how
 we plan to benchmark different versions of it.
 We determined that testing an end-to-end program would be too slow,
