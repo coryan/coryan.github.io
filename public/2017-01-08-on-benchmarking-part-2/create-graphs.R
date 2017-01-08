@@ -31,7 +31,8 @@ ggsave(filename="microbenchmark-vs-scheduling-setup.boxplot.png",
 # ... select the subset of the data that follows our scheduling
 # recommendations ...
 data.rec <- subset(
-    data, (scheduling != 'best-effort' & governor == 'performance'))
+    data, ((scheduling != 'default' & governor == 'performance')
+        | (loaded == 'unloaded' & scheduling == 'default')))
 
 ggplot(data=data.rec, aes(x=seed, y=microseconds, color=run)) +
     facet_grid(loaded ~ governor + scheduling) +
@@ -45,10 +46,11 @@ ggsave(filename="microbenchmark-vs-seed.boxplot.svg",
 ggsave(filename="microbenchmark-vs-seed.boxplot.png",
        width=8.0, height=8.0/1.61)
 
-# ... fix the seed and see how the graph looks ...
+# ... restrict to fixed seeds, and see how the graph looks ...
 data.rec <- subset(
-    data, (scheduling != 'best-effort' & governor == 'performance' &
-           seed == 'seed'))
+    data, (((seed == 'fixed') & (governor == 'performance'))
+        & ((scheduling != 'default')
+            | (scheduling == 'default' & loaded == 'unloaded'))))
 
 ggplot(data=data.rec, aes(x=seed, y=microseconds, color=run)) +
     facet_grid(loaded + governor ~ scheduling) +
@@ -64,8 +66,7 @@ ggsave(filename="microbenchmark-vs-load.boxplot.png",
 
 # ... fix the load and see how the graph looks ...
 data.rec <- subset(
-    data, (scheduling != 'best-effort' & governor == 'performance' &
-           seed == 'seed' & loaded == 'noload'))
+    data, (governor == 'performance' & seed == 'fixed' & loaded == 'unloaded'))
 
 ggplot(data=data.rec, aes(x=seed, y=microseconds, color=run)) +
     facet_grid(loaded + governor ~ scheduling) +
@@ -80,3 +81,5 @@ ggsave(filename="microbenchmark-vs-rtlimit.boxplot.png",
        width=8.0, height=8.0/1.61)
 
 aggregate(microseconds ~ scheduling, data=data.rec, FUN=IQR)
+
+q(save="no")

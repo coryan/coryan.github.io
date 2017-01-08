@@ -66,7 +66,7 @@ execute_scheduling_scenarios() {
     shift
     # ... we need to test different schedulers for the microbenchmark ...
     local rtsched
-    for rtsched in default rt:limited rt:unlimited; do
+    for rtsched in default rt:default rt:unlimited; do
         local schedarg=""
         [ "x${rtsched?}" != "xdefault" ] || \
             schedarg="--microbenchmark.reconfigure-thread=false"
@@ -87,7 +87,7 @@ execute_scheduling_scenarios() {
             tname="${mtype?},${loaded?},${seeded?},${rtsched?},${governor?}"
             [ "x${governor}" = "xnogovernor" ] || \
                 sudo cpupower frequency-set -g $governor | log $LOG
-            execute_runs 10 ${tname?} ${schedarg} $*
+            execute_runs 4 ${tname?} ${schedarg} $*
         done # rtsched
     done # seeded
 }
@@ -103,12 +103,12 @@ main() {
 
     benchmark_startup
     local load
-    for load in noload loaded; do
+    for load in unloaded loaded; do
         [ "x${load?}" != "xloaded" ] || start_load
         local seeded
-        for seeded in noseed seed; do
+        for seeded in urandom fixed; do
             local seedarg=""
-            [ "x${seeded?}" = "xnoseed" ] || seedarg="--seed=3239495522"
+            [ "x${seeded?}" != "xfixed" ] || seedarg="--seed=3239495522"
             execute_scheduling_scenarios ${load?} ${seeded?} ${seedarg?}
         done
         [ "x${load?}" != "xloaded" ] || stop_load
