@@ -8,7 +8,7 @@ date: 2017-01-08 04:00
 > [first article](/2017/01/04/on-benchmarking-part-1/) and read them
 > in sequence.
 
-In our [previous post]({{previous.post.url}}) we discussed the
+In our [previous post]({{page.previous.url}}) we discussed the
 `array_based_order_book_side<>` template class in detail,
 and outlined how
 we plan to benchmark different versions of it.
