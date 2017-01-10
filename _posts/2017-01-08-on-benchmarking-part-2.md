@@ -12,7 +12,7 @@ draft: true
 > me](https://github.com/coryan/coryan.github.io/issues/1) where I
 > did.
 
-In my [previous post]({{previous.post.url}}) I discussed a class
+In my [previous post]({{page.previous.url}}) I discussed a class
 (`array_based_order_book_side<>`)
 which serves as a motivation to learn how to create really good
 benchmarks.
