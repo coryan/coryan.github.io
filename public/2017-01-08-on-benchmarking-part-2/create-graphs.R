@@ -31,8 +31,8 @@ ggsave(filename="microbenchmark-vs-scheduling-setup.boxplot.png",
 # ... select the subset of the data that follows our scheduling
 # recommendations ...
 data.rec <- subset(
-    data, ((scheduling != 'default' & governor == 'performance')
-        | (loaded == 'unloaded' & scheduling == 'default')))
+    data, !((scheduling == 'default' & loaded == 'loaded')
+        | (governor == 'ondemand' & scheduling != 'default')))
 
 ggplot(data=data.rec, aes(x=seed, y=microseconds, color=run)) +
     facet_grid(loaded ~ governor + scheduling) +
@@ -47,13 +47,10 @@ ggsave(filename="microbenchmark-vs-seed.boxplot.png",
        width=8.0, height=8.0/1.61)
 
 # ... restrict to fixed seeds, and see how the graph looks ...
-data.rec <- subset(
-    data, (((seed == 'fixed') & (governor == 'performance'))
-        & ((scheduling != 'default')
-            | (scheduling == 'default' & loaded == 'unloaded'))))
+data.rec <- subset(data.rec, seed == 'fixed')
 
 ggplot(data=data.rec, aes(x=seed, y=microseconds, color=run)) +
-    facet_grid(loaded + governor ~ scheduling) +
+    facet_grid(loaded ~ governor + scheduling) +
   geom_boxplot() +
   ylab("Iteration Latency (us)") +
   xlab("Run Number") +
@@ -65,11 +62,10 @@ ggsave(filename="microbenchmark-vs-load.boxplot.png",
        width=8.0, height=8.0/1.61)
 
 # ... fix the load and see how the graph looks ...
-data.rec <- subset(
-    data, (governor == 'performance' & seed == 'fixed' & loaded == 'unloaded'))
+data.rec <- subset(data.rec, loaded == 'unloaded')
 
 ggplot(data=data.rec, aes(x=seed, y=microseconds, color=run)) +
-    facet_grid(loaded + governor ~ scheduling) +
+    facet_grid(loaded ~ governor + scheduling) +
   geom_boxplot() +
   ylab("Iteration Latency (us)") +
   xlab("Run Number") +
@@ -80,6 +76,10 @@ ggsave(filename="microbenchmark-vs-rtlimit.boxplot.svg",
 ggsave(filename="microbenchmark-vs-rtlimit.boxplot.png",
        width=8.0, height=8.0/1.61)
 
-aggregate(microseconds ~ scheduling, data=data.rec, FUN=IQR)
+aggregate(microseconds ~ governor + scheduling, data=data.rec, FUN=function(x) round(IQR(x)))
+
+data.iqr <- aggregate(microseconds ~ loaded + seed + scheduling + governor, data=data, FUN=function(x) round(IQR(x)))
+
+head(arrange(filter(data.iqr, seed=='fixed'), desc(microseconds)))
 
 q(save="no")

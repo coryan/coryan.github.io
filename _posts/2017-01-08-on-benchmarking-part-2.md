@@ -5,231 +5,320 @@ date: 2017-01-08 04:00
 draft: true
 ---
 
-> This is an article in a long series, you may want to start from the
-> [first article](/2017/01/04/on-benchmarking-part-1/) and read them
-> in sequence.
+> This is a long series of posts where I try to teach myself how to
+> run rigorous, reproducible microbenchmarks on Linux.  Maybe you may
+> want to start from the [first one](/2017/01/04/on-benchmarking-part-1/)
+> and learn with me as I go along.  Better yet, [tell
+> me](https://github.com/coryan/coryan.github.io/issues/1) where I
+> did.
 
-In our [previous post]({{previous.post.url}}) we discussed the
-`array_based_order_book_side<>` template class in detail,
-and outlined how
-we plan to benchmark different versions of it.
-We determined that testing an end-to-end program would be too slow,
-too cumbersome, and too unpredictable to be usable.
-After discussing the tradeoffs between using recorded vs. synthetic
-inputs for benchmarking this class, we settled on synthetic inputs.
-We recall that the inputs in this case take the form of sequences of
-operations that must be processed by the class under test.
+In my [previous post]({{previous.post.url}}) I discussed a class
+(`array_based_order_book_side<>`)
+which serves as a motivation to learn how to create really good
+benchmarks.
+Because testing the class inside a full program introduces too much
+variation in the results,  it is too slow, and it is too cumbersome I
+decided to go with a small purpose built benchmark program.
+I also decided that the benchmark would generate synthetic inputs for
+the class.  These inputs are really some long sequences of operations
+that the class must process.
 
-In this post we will describe the benchmarking framework used in
-[JayBeams](https://github.com/coryan/jaybeams/),
-and how to control the execution environment to obtain consistent
-results in any benchmark of CPU bound components.
-In general, the class of benchmarks we are describing are referred to
-as
-[microbenchmark](https://en.wiktionary.org/wiki/microbenchmark), and
-we will use this term from now on.
+In this post I will describe a little framework I built to write
+benchmarks for 
+[JayBeams](https://github.com/coryan/jaybeams/).
+Mostly this was born with the frustration of not getting the same
+results when running even the same benchmark twice.
+It turns out you need to do a lot of fine tuning in the operating
+system to get consistency out of you benchmarks, and you also
+need to select your clock carefully.
+Most folks call such small benchmarks a 
+[microbenchmark](https://en.wiktionary.org/wiki/microbenchmark),
+and I like the name because it makes a clear distinction from large
+benchmarks as those for database systems (think TPC-E and its
+cousins).
+I plan to use that name from this point.
 
-## The Typical Structure of Microbenchmark
+## Anatomy of a Microbenchmark
 
 Most microbenchmarks follow a similar pattern.
-First, the environment necessary to run the component under test
-is setup.
-This may require mocking some of the interfaces that the component
-interacts with, but potentially could be tested against real
-components too.
+First, you setup the environment necessary to run whatever it is you
+are testing.
+This is similar to how you setup your mocks in a unit test, and in
+fact you may setup mocks for your benchmark too.
+In the case of `array_based_order_book_side<>` one wants to build that
+synthetic list of operations before the system starts measuring the
+performance of the class.
+Building that list is expensive, and do you want to include it the
+measurement of the class itself.
+In general, microbenchmarks do not measure or report the time required
+to setup their test environment.
 
-Next, multiple iterations of the test are executed, and the elapsed or
-CPU time of the each iteration is recorded.
-Sometimes a number of initial iterations is discarded, arguing that
-they represent a "warm up" period that the system needs before it can
-get to a stable operating regimen.
+Then, you run multiple iterations of the test and capture how long it
+took to run each iteration.
+How exactly you measure the time is a
+complicated question, modern operating systems and programming
+languages offer multiple different ways to measure time.
+I will discuss which one I picked, and why, later in the post.
+Sometimes you want to run a number of iterations at the beginning of
+the benchmark, and discard the results from them.
+The argument is usually that you are interested in the steady state of
+the system, not what happens while the system is "warming up".
+Whether that is sensible or not depends on the context, of course.
 
-While modern systems provide many mechanisms to measure time,
-microbenchmarks often neglect to mention exactly which mechanism they used,
-and to document why what that mechanism chosen in the first place.
+At the end most microbenchmarks report some kind of aggregate of the
+results, typically the average time across all iterations.
+More rarely you some additional
+[statistics](https://en.wikipedia.org/wiki/Statistic), such as the minimum,
+maximum, standard deviation, or the median.
 
-Often only an aggregate of the results is reported,
-for example, the arithmetic mean of the measurements.
-More rarely other statistics, such as the maximum, some quantiles, or
-the standard deviation are also reported.
-
-Rarely do we see any justification to the choice of statistics:
+One of my frustrations is that I rarely see any justification for the
+choice of statistics:
 why is the mean the right statistic to consider in the
-conditions observed during the benchmark?  Why not median?
-Does it even make sense to consider a measure of
-[central tendency](https://en.wikipedia.org/wiki/Central_tendency),
-or should we consider another type of
-[location parameter](https://en.wikipedia.org/wiki/Location_parameter)?
-Why is the standard deviation the right measurement of
+conditions observed during the benchmark?
+How are you going to deal with outliers if you use the mean?
+Why not median?
+Does your data show any kind of 
+[central tendency](https://en.wikipedia.org/wiki/Central_tendency)?
+If not, then neither median nor mean are good ideas, so why report them?
+Likewise, why is the standard deviation the right measurement of
 [statistical dispersion](https://en.wikipedia.org/wiki/Statistical_dispersion)?
-Is the interquartile range a better statistic under our conditions?
+Is the interquartile range a better statistic for your tests?
 
-Even worse, very few reports include any kind of power analysis: was
-the number of iterations high enough to draw a stastically significant
-conclusion?
-And more importantly: was the effect observed sufficiently interesting
-to merit any reporting?  Or is this a case of statistically
-significant but meaningless [change](https://xkcd.com/1252/)?
+The other mistake that folks often make is to pick a number of
+iterations because "it seems high enough".
+There are good statistical techniques to decide how many iterations
+are needed to draw valid conclusions, why not use them?
 
-The (very) interesting statistical questions will be the matter of a
-future post.
-In the following sections we will describe the framework used in
-JayBeams, and hopefully address all the deficiencies raised in the
-previous paragraphs.
+An even worse mistake is to not consider whether the effect observed
+by your benchmark even makes sense: if you results indicate that
+option A is better by less than one cycle per iteration vs. option B,
+do you really think that is meaningful?
+Are you having a case of [xkcd/1252](https://xkcd.com/1252/).
 
-## The JayBeams Microbenchmark Infrastructure
+## The JayBeams Microbenchmark Framework
 
-JayBeams provides a number of classes to make it easy to write
-microbenchmarks.
-The user provides a *fixture*, which encapsulates both the setup and
-run steps of the test.  The framework takes care of preparing the
-system to run the test, reading the configuration parameters for the
-test, running the desired number of warm up and test iterations,
-capturing the results, and finally reporting all the data.
-
-### The Fixture class
-
-The constructor of this class is required to
-configure the environment to run the tests, including any mock objects
-or other dependencies.
-The constructor can receive a `size` argument describing the how large
-of a test to run, for benchmarks that exercises algorithms with
-
-The `Fixture::run()` member function executes the test.
-The framework configuration determines how many times this function is
-called during the warm up period (if any), and how many times it is
-called during the measurement period.
+Having written a few microbenchmarks in the past, and not wanting to
+write the same things over an over, I wrote a little
+[framework](https://github.com/coryan/jaybeams/blob/eabc035fc23db078e7e6b6adbc26c08e762f37b3/jb/testing/microbenchmark.hpp)
+to run all the microbenchmarks in JayBeams.
+You give it a `fixture` template parameter.
+The constructor of this fixture must setup the environment for the
+microbenchmark.
+The `fixture::run` member function runs the test.
+The framework  takes care of the rest:
+it reads the configuration parameters for the
+test from the command line, calls your constructor,
+runs the desired number of warm up and test iterations,
+captures the results, and finally reports all the data.
 
 The time measurements for each iteration are captured in memory,
-with all reporting deferred until after the microbenchmark is completed.
-In fact, no output is produced by the framework while the test is running.
+we do not want to contaminate the performance of test with additional
+I/O.
 And all the memory necessary to capture the results is allocated before
-the test starts to avoid interfering with any allocations performed by
-the component under test.
+the test starts, because we do not want to contaminate the arena
+either.
+
+### Reporting the Results
+
+I chose to make no assumptions in the JayBeams microbenchmark
+framework as to what are good
+statistics to report for a given microbenchmark.
+The choice of statistic depends on the nature of the underlying
+distribution, and the statistical tests that you are planning to use.
+Worse, even if I knew the perfect statistics to use, there are some
+complicated numerical and semi-numerical algorithms involved.
+Such tasks are best left for specialized software, such as
+[R](http://www.r-project.org), or if you are a Python fan
+[Pandas](http://pandas.pydata.org/).
+
+In general, the JayBeams microbenchmark framework will dump all the
+results to stdout, and expects you to collect them (probably with a
+script), give them to a script (I use R) to perform the analysis
+there.
+However, sometimes you just want quick results to guide the
+modify-compile-test cycles.
+
+The microbenchmark framework also outputs a summary of the results.
+This summary includes: the number of
+iterations, the minimum time, the maximum time, and the p25, p50, p75,
+p90 and p99.9 percentiles of the time across all iterations.
+BTW, I picked up p99.9 as a notation for "the
+99.9th percentile", or the even worse "the 0.999 quantile of the
+sample" in one of my jobs, not sure who invented it, and I think
+it is not very standard, but it should be.
+The choice of percentiles is based on the fact that most latency
+measurements are skewed to the right (so we have more percentiles
+above 90% than below 10%), but the choice is admittedly arbitrary.
+The system intentionally omits the mean, because the distributions
+rarely have any central tendency, which is what the mean intuitively
+represent, and I fear folks would draw wrong conclusions if included.
 
 ### Clock selection
 
-The microbenchmark framework uses `std::steady_clock` to measure the
-duration of the tests.
-Other alternatives were considered (and rejected), as described below:
+I mentioned that there are many clocks available in C++ on Linux, and
+promised to tell you how I chose.
+The JayBeams microbenchmark framework uses `std::chrono::steady_clock`, this
+is a guaranteed monotonic clock, the resolution depends on your
+hardware, but any modern x86 computer is likely to have a
+[HPET](https://en.wikipedia.org/wiki/High_Precision_Event_Timer)
+circuit with at least 100ns resolution.
+The Linux kernel can also drive the time measurements using the
+[TSC](https://en.wikipedia.org/wiki/Time_Stamp_Counter) register,
+which has sub-nanosecond resolution (but many other problems).
+In short, this is a good clock for a stopwatch (monotonic), and while
+the resolution is not guaranteed to be sub-microseconds, it is likely
+to be. That meets my requirements, but why not any of the alternatives?
 
 `getrusage(2)`: this system call returns the resource utilization
   counters that the system tracks for every process (and in some
   systems each thread).
   The counters include cpu time, system time, page faults, context
   switches, and many others.
-  Using CPU time instead of wall clock time is advantageous
-  because it should be less sensitive to scheduling effects.  The
-  amount of CPU used should not change while the program waiting to be
-  scheduled.
+  Using CPU time instead of wall clock time is good,
+  because the amount of CPU used should not change while the program
+  waiting to be scheduled.
   However, the precision of `getrusage` is too low for our purposes,
   traditionally it was updated 100 times a second, but even on modern
   Linux kernels the counters are only incremented around 1,000 times
   per second
   [[1]](http://ww2.cs.fsu.edu/~hines/present/timing_linux.pdf)
   [[2]](http://stackoverflow.com/questions/12392278/measure-time-in-linux-time-vs-clock-vs-getrusage-vs-clock-gettime-vs-gettimeof).
-  Therefore, these counters have at best millisecond resolution,
-  while the improvements we need to evaluate often differ by just a
-  few microseconds or even a few nanoseconds.
-  Using these function would introduce measurement errors many times
+  So at best you get millisecond resolution,
+  while the improvements we are trying to measure may be a few
+  microseconds.
+  This system call would introduce measurement errors many times
   larger than the effects we want to measure, and therefore it is not
   appropriate for our purposes.
 
-`std::high_resolution_clock`: C++ offers a potentially
-  higher-resolution clock than `std::steady_clock`.
-  However, this
-  clock is not guaranteed to be monotonic, making it inadequate for
-  duration measurements.
-  On Linux, the implementation uses
+`std::chrono::high_resolution_clock`: so C++ 11 introduced a number of
+  different clocks, and this one has potentially higher-resolution
+  clock than `std::chrono::steady_clock`.
+  That is good, right?
+  Unfortunately, `high_resolution_clock` is not guaranteed to be
+  monotonic, it might go back in time, or some seconds may be shorter
+  than others.
+  I checked, maybe I was lucky and it was actually monotonic on my
+  combination of operating system and compilers.
+  No such luck, in all the Linux implementations I used this clock is
+  based on
   `clock_gettime(CLOCK_REALTIME,...)`
   [[3]](https://github.com/gcc-mirror/gcc/blob/1cb6c2eb3b8361d850be8e8270c597270a1a7967/libstdc%2B%2B-v3/src/c%2B%2B11/chrono.cc),
   which is subject to changes in the system clock, such as ntp
   adjustments.
+  So this one is rejected because it does not make for a good
+  stopwatch.
 
 `clock_gettime(2)`: is the underlying function used in the
-  implementation of `std::steady_clock`.
+  implementation of `std::chrono::steady_clock`.
   One could argue that using it directly would be more efficient,
   however the C++ classes around them add very little overhead, and
-  offer a much superior,
-  we see no reason to sacrifice the improved abstractions for marginal
-  (or no) improvement.
+  offer a much superior interface.
+  Candidly I would have written a wrapper to use this class, and the
+  wrapper would have been worse than the one provided by the standard,
+  so why bother?
 
 `gettimeofday(2)` is a POSIX call with similar semantics to
   `clock_gettime(CLOCK_REALTIME, ...)`.
-  However, POSIX no longer recommendeds this call
+  Even the POSIX standard no longer recommends using it
   [[4]](http://pubs.opengroup.org/onlinepubs/9699919799/functions/gettimeofday.html),
   and recommends using `clock_gettime` instead.
+  So this one is rejected because it is basically obsoleted, and it is
+  also not monotonic, so not a good stopwatch.
 
 `time(2)` only has second resolution, and it is not monotonic.
   Clearly not adequate for our purposes.
   
-`rdtsc`: is a x86 instruction that essentially returns the number of
+`rdtscp` / `rdtsc`: Okay, this is the one that all the low level
+  programmers go after.
+  It is a x86 instruction that essentially returns the number of
   ticks since the CPU started.
-  It can be used to measure time intervals with very minimal overhead
-  (a single instruction to capture the timestamp!).
-  We have used this approach in the past, but there are a number of
-  [pitfalls](http://oliveryang.net/2015/09/pitfalls-of-TSC-usage/).
+  You cannot ask for lower overhead than "single instruction", right?
+  I have used this approach in the past, you need to calibrate the
+  counter, it is never correct to just take the count and divided by
+  the clock rate of your CPU.
+  But there are a number of other
+  [pitfalls](http://oliveryang.net/2015/09/pitfalls-of-TSC-usage/) too.
   Furthermore, `clock_gettime` is implemented using
   [vDSO](http://man7.org/linux/man-pages/man7/vdso.7.html),
   which greatly reduces the overhead of these system calls.
-  In our opinion, its use is no longer justified on modern Linux systems.
+  My little
+  [benchmark](https://github.com/coryan/jaybeams/blob/eabc035fc23db078e7e6b6adbc26c08e762f37b3/jb/bm_clocks.cpp),
+  indicates that the difference between them is about 30ns (that is
+  nanoseconds) on my workstation.
+  In our opinion, its use is no longer justified on modern Linux
+  systems, a lot of extra complexity that you only need if you are
+  measuring things in the nanosecond range.
+  We may need it eventually, if we start measuring computations that
+  take less than one microsecond, but until I do I think
+  `std::chrono::steady_clock` is much easier to use.
 
 ### System Configuration
 
-Running a benchmark on a Linux server or workstation can produce
-extremely variable results depending on the system load, scheduling
-parameters, and the frequency scaling governor among other system
-configuration parameters.
-We have identified (1) the scheduling class for the process,
+Running benchmarks on a typical Linux workstation or server can be
+frustrating because the results vary so much.
+Run the test once, it takes 20ms, running it again, it takes 50ms, run
+it a third time it takes 25ms, again and you get 45ms.
+Where is all this variation coming from?  And how can we control it?
+I have found that you need to control at least the following to
+get consistent results:
+(1) the scheduling class for the process,
 (2) the percentage of the CPU reserved for non real-time processes,
 (3) the CPU frequency scaling governor in the system,
-and (4) the overall system load,
-as the critical system and process configuration that must be
-controlled to obtain consistent results.
+and (4) the overall system load.
 
-First we describe these configuration parameters, and then we present
-the results of our exploratory data analysis.
+I basically tested all different combinations of these parameters, and
+I will remove the combinations that produce bad results until we
+find the one (or few ones) that works well.
+Well, when I say "all combinations" I do not mean that: there are 99
+different real-time priorities, do we need to test all of them?
+What I actually mean is:
 
-**scheduling class**: the scheduling class controls the algorithm used
-by the kernel to schedule the tasks in the system.
-We run the microbenchmark in the default scheduling class
-(`SCHED_OTHER`), and at the maximum priority in the real-time
-scheduling class (`SCHED_FIFO`) with the default system limits for
-real-time tasks.
-We refer the reader to
-[sched(7)](http://man7.org/linux/man-pages/man7/sched.7.html)
-for a detailed description of the different scheduling classes and
-available priorities in Linux systems.
+**scheduling class**: I ran the microbenchmark in both the default
+scheduling class (`SCHED_OTHER`), and at the maximum priority in the
+real-time scheduling class (`SCHED_FIFO`).
+If you want a detailed description of the scheduling classes and how
+they work I recommend the man page:
+[sched(7)](http://man7.org/linux/man-pages/man7/sched.7.html).
 
-**non-real-time CPU reservation**: to avoid starving non-real-time
-tasks the Linux kernel can be configured to reserve a percentage of
-the CPU for them.
-By default this value is set to 5%, but it can be changed by writing
-into `/proc/sys/kernel/sched_rt_runtime_us` parameter
+**non-real-time CPU reservation**: this one is not as well known, so a
+brief intro, real-time tasks can starve the non real-time tasks if
+they go haywire.  That might be Okay, but they can also starve the
+interrupts, and that can be a "Bad Thing"[tm].
+So by default the  Linux kernel is configured to reserve a percentage
+of the CPU for non real-time workloads.
+Most systems set this to 5%, but it can be changed by writing
+into `/proc/sys/kernel/sched_rt_runtime_us`
 [[5]](http://man7.org/linux/man-pages/man7/sched.7.html)).
-When the process is in the FIFO scheduling class we run it with the
-default CPU reservation for non-real-time tasks and with unlimited CPU
-for real-time tasks.
+For benchmarks this is awful, if your systems has more cores than the
+benchmark is going to use, why not run with 0% reserved for the non
+real-time tasks?
+So we try with both a 0% and a 5% reservation for non real-time tasks
+and see how this affects the predictability of the results when using
+real-time scheduling (it should make no different when running in the
+default scheduling class, so we skipped that).
 
 **CPU frequency scaling governor**: modern CPUs can change their
 frequency dynamically to tradeoff power efficiency against
 performance.  The system provides different *governors* that offer
-distinct tradeoffs of performance vs. power efficiency.
-We run the tests with both the `ondemand` CPU governor, which attempts
+distinct strategies to balance this tradeoff.
+I ran the tests with both the `ondemand` CPU governor, which attempts
 to increase the CPU frequency as soon as it is needed,
 and with the `performance` CPU frequency governor which always runs
 the CPU at the highest available frequency
 [[6]](https://wiki.archlinux.org/index.php/CPU_frequency_scaling).
 
-**system load**: to simulate the effect of a loaded vs. idle system we
-run the system without any additional load, that is *unloaded*, and
-with N processes, one for each core, each of which tries to consume
-100% of a CPU.
+**system load**: we all know that performance results are affected by
+external load, so to simulate the effect of a loaded vs. idle system I
+ran the tests with the system basically idle (called 'unloaded' in the
+graphs).  Then I repeated the benchmarks while I ran N processes, one
+for each core, each of these processes tries to consume 100% of a core.
 
-
-Finally, we run run multiple iterations of the microbenchmark, under
-all possible combinations of these conditions.  The results are
-presented in the following graph:
+Finally, we run run four iterations of the microbenchmark, under
+all possible combinations of the configuration parameters and load I
+described above.
+I actually used `map_based_order_book_side<>` in these benchmarks, but
+the results apply regardless of what you are testing.
+Let's look at the pretty graph:
 
 ![A series of boxplot graphs showing how the performance vary with
   scheduling parameters, load, and the system frequency scaling
@@ -237,205 +326,191 @@ presented in the following graph:
  "Test Latency Results under Different Load, Scheduling Parameters,
   and CPU Frequency Scaling Governor.")
 
-As we can see the results are extremely variable when the
-default scheduling class is used and the system is under load.
-The results in this scheduling class are more consistent when the
-system is not under load.
-We should continue to consider the default scheduling class when the
-system is not under load, however.
+The first thing that jumps at you is the large number of outliers in
+the default scheduling class when the the system is under load.
+That is not a surprise, the poor benchmark is competing with the load
+generator, and they are both the same priority.
+We probably do not want to run benchmarks on loaded systems at the
+default scheduling class, we kind of knew that, but confirmed.
 
-While the results are more consistent under the real-time scheduling
-class,
-they are, somewhat surprisingly, very variable with the `ondemand`
-governor under no system load.
-This is explained because under high system load the `ondemand`
-governor pushes the CPU frequency to its highest value, improving the
-consistency (and actual latency) of the microbenchmark measurements.
+We can also eliminate the `ondemand` governor when using the real-time
+scheduling class.
+When there is no load in the system the results are quite variable
+under this governor.
+However it seems that it performs well when the system is loaded.
+That is weird, right?
+Well if you think about it, under high system load the `ondemand`
+governor pushes the CPU frequency to its highest value because the
+load generator is asking for the CPU all the time.
+That actually improves the consistency of the results because when the
+benchmark gets to run the CPU is already running as fast as possible.
 In effect, running with the `ondemand` governor under high load is
 equivalent to running under the `performance` governor under any load.
-It is, again, preferable to use the `performance` governor when
-running microbenchmarks because we want consistent results.
 
-For these reason the microbenchmark framework automatically runs
-the job in the FIFO scheduling class, at the maximum scheduling
-priority.
-If the user does not have enough privileges the changes in the
-scheduling parameters fail, but the program continues.
-The framework can be configured at run-time to terminate the program
-on a failure to set the scheduling parameters,
-or to not set the scheduling parameters in the first place.
+#### Before Going Further: Fix the Input
 
-Likewise, the driver scripts for any microbenchmarks in JayBeams
-automatically set the CPU frequency scaling governor to `performance`
-before running any benchmarks.
-
-#### Effect of the Microbenchmark Inputs
-
-We recall that the microbenchmark in question generates a sequence of
-operations based on a PRNG.
-Naturally, the component under test will take different time to
-process different inputs,
-and while we would be interested on making sure any
-improvements to the component work for all inputs (or at least most
-inputs), we propose to analyze the impact of other system
-configuration parameters while the input remains fixed.
-
+Okay, so the `ondemand` governor is a bad idea, and running in the
+default scheduling class with high load is a bad idea too.
 The following graph shows different results for the microbenchmark
 when the system is always configured to use the `performance` CPU
 frequency governor, and excluding the default scheduling class when
-the system is under load.
+the system is under load:
 
 ![A series of boxplot graphs showing how the performance vary with
   the PRNG seed selection and system load.](/public/2017-01-08-on-benchmarking-part-2/microbenchmark-vs-seed.boxplot.svg
  "Microbenchmark Results under Different Load and PRNG seeds.")
 
-As we can see, running with a fixed seed produces more consistent
-results than letting the system pick a seed from `/dev/urandom`.
-However, there are still large effects due to system load and
-scheduling that we should control for.
+I have broken down the times by the different inputs to the test.
+Either with the same seed to the pseudo random number generator (PRNG)
+used to create that synthetic sequence of operations we have
+discussed, labeled *fixed*, or using
+`/dev/urandom` to initialize the PRNG, labeled *urandom*, of course.
+Obviously some of the different in execution time can be attributed to
+the input, but there are noticeable differences even when the input is
+always the same.
 
 #### Effect of the System Load and Scheduling Limits
 
-The previous graph shows that different seed parameters can result in
-different performance for the test.
-To complete our analysis of the system configuration more suitable for
-testing, we fix the seed and look at the effects of the system load
-and real-time scheduling limits:
+By now this has become a quest: how to configure the system and test
+to get the most consistent results possible?
+Let's look at the results again, but remove the `ondemand` governor,
+and only used the same input in all tests:
 
 ![A series of boxplot graphs showing how the performance vary with
   system load and the real-time scheduling system-wide limits.](/public/2017-01-08-on-benchmarking-part-2/microbenchmark-vs-load.boxplot.svg
  "Microbenchmark Results under Different Load and Real-time Scheduling
   Limits.")
 
-As one would expect, the system produces more consistent results when
-not under heavy load, notice that the variation here is
-significantly smaller than what we observed earlier when using the
-default scheduling class.
+Okay, we knew from the beginning that running on a loaded system was a
+bad idea.
+We can control the outliers with suitable scheduling parameters, but
+there is a lot more variation between the first and third quartiles
+(those are the end of the boxes in these graphs btw) with load than
+without it.
 
-Finally, we examine the effect of the real-time scheduling limits as
-configured in `/proc/sys/kernel/sched_rt_runtime_us`:
+We still have that `/proc/sys/kernel/sched_rt_runtime_us` parameter
+controlling the amount of CPU reserved for non real-time task.
+What is the effect of this?
 
 ![A series of boxplot graphs showing how the performance vary with
   system load and the real-time scheduling system-wide limits.](/public/2017-01-08-on-benchmarking-part-2/microbenchmark-vs-rtlimit.boxplot.svg
  "Microbenchmark Results and Real-time Scheduling Limits.")
 
-The effects seem to be very small, but not trivial, the inter-quartile
-range for this data is:
+The effects seem to be very small, but hard to see in the graph.
+Time to use some number crunching, I chose the interquartile range
+(IQR) because it is robust and non-parametric, it captures 50% of the data
+no matter what the distribution or outliers are:
 
-|Scheduling Class | Real-time Scheduling Limits | Inter-Quartile Range |
-| --------------- | --------------------------- | --------------------:|
-| default | N/A | 89 |
-| FIFO    | default (95%) | 40 |
-| FIFO    | unlimited     | 28 |
+| Governor | Scheduling Class | Real-time Scheduling Limits | IQR |
+| -------- | ---------------- | --------------------------- | ---:|
+| ondemand |default | N/A | 148 |
+| performance |default | N/A | 89 |
+| performance | FIFO    | default (95%) | 40 |
+| performance | FIFO    | unlimited     | 28 |
 
-Therefore, we prefer to configure the system to real-time tasks to use
-all the CPU during the execution of microbenchmarks.
+That is enough to convince me that there is a clear benefit to using
+all the settings we have discussed above.
+Just for fun, here is how bad those IQRs started, even if only
+restricted to the same seed for all runs:
 
-### Reporting the Results
+|   loaded |   seed |  scheduling |   governor | Interquartile Range |
+| -------- | ------ | ----------- | ---------- | -------------------:|
+| loaded | fixed |      default    | ondemand     | 602 |
+| loaded | fixed |   rt:default    | ondemand     | 555 |
+| loaded | fixed |      default | performance     | 540 |
+| loaded | fixed |   rt:default | performance     | 500 |
+| loaded | fixed | rt:unlimited | performance     | 492 |
+| loaded | fixed | rt:unlimited    | ondemand     | 481 |
 
-We now need to consider how the results of the measurements should be
-reported.
-The JayBeams microbenchmark framework makes no assumptions as to what
-are good statistics to report for a given run of experiments.
-The choice of statistic depends on the nature of the underlying
-distribution, and producing correct results for all of them is a task
-best left for specialized software, such as
-[R](http://www.r-project.org), a powerful software environment for
-statistical computing.
-On the other hand, before final results are ready for analysis the
-developers may want to review preliminary results quickly to guide
-their modify-compile-test cycles.
+I believe the improvement is quite significant, we will see later that
+this is the difference between having to run a few hundred iterations
+of the test vs. close to a million to obtain enough statistical power
+in the microbenchmark.
 
-To satisfy these demands the JayBeams microbenchmark framework can
-operate in two modes:
+I should mention that all these pretty graphs and tables are
+compelling, but do not have sufficient statistical to draw strong
+conclusions.
+I feel comfortable  asserting that changing these system configuration
+parameters has an effect on the consistency of the performance
+results.
+I cannot assert with any confidence what is the size of the effect, or
+whether the results are statistically significant, or to what
+population of tests they apply.
+Those things are possible to do, but require more space than we have
+available right now.
 
-When a developer is running quick tests to evaluate a change,
-the microbenchmark program outputs a summary of the results.
-This summary includes the following statistics: the number of
-iterations, the minimum time, the maximum time, and the p25, p50, p75,
-p90 and p99.9 percentiles.
-The choice of percentiles is based on the fact that most latency
-measurements are skewed to the right (so we have more percentiles
-above 90% than below 10%), but the choice is admittedly arbitrary.
-The system intentionally omits the mean, because the distributions
-rarely have any central tendency, which is what the mean intuitively
-represent.
-We believe most users would be tempted to draw incorrect conclusions
-if this statistic was included.
+### Summary
 
-When the developer is ready for a formal test they execute a driver
-script which runs the benchmark with a controlled system configuration,
-and produces a full dump of every iteration measurement.
-The driver also captures metadata for the benchmark, such as the
-compiler version, library versions, and compilation options.
-A second script, typically written in R, performs any statistical
-analysis of the data.
-
-The need for a separate driver is less than ideal,
-however, there are no APIs to configure some of the system
-parameters identified above (such as the CPU frequency scaling
-governor, or the non-real-time scheduling CPU reservation), which
-would require running the program as a privileged user to change
-them.
-A script can request temporary privilege escalation via `sudo(8)`,
-which is a more accepted practice than running your benchmarks as the
-superuser.
-We are waiting to gain more experience with the framework before
-deciding if running them with elevated privileges is the right
-solution after all.
-
-On the other hand, the separation of concerns between the script to
-run the statistical analysis and the program under test we think is
-the right one.
-Systems like R, offer far more flexibility and a richer set of
-statistics than we can dream to offer in our code.
-
-### Summary of Recommendations for the System Configuration
-
-Microbenchmarks should be executed on a lightly loaded system,
+The system configuration seems to have a very large effect on how
+consistent your benchmark results are.
+I prefer to run microbenchmarks on the `SCHED_FIFO` scheduling class,
+at the highest available priority, on a lightly loaded system,
 where the CPU frequency scaling governor has been set to
 `performance`, and where the system has been configured to dedicate up
 to 100% of the CPU to real-time tasks.
-The program performing the tests should be running on the `SCHED_FIFO`
-scheduling class, at the highest priority available.
 
-Even under such conditions it is crucial that the program runs with
-exactly the same inputs in each iteration of the test,
-and one should expect some variation in the results from run to run.
+The microbenchmark framework automatically
+set all these configuration parameters.
+Well, at the moment I use a driver script to set the CPU frequency
+scaling governor and to change the CPU reservation for non real-time
+tasks.
+I prefer to keep this in a separate script because otherwise we need
+superuser privileges to run the benchmark (while we only need the right
+capabilities to set the scheduling parameters).
+The script is small and easier to inspect for security problems,
+in fact, it just relies on sudo, so a simple grep finds all the
+relevant lines.
+If you do not like these settings, the framework can be configured to
+not set them.
+It can also be configured to either ignore errors when changing the
+scheduling parameters (the default), or to raise an exception if
+setting any of the scheduling parameters fails.
 
-We note that because there is variation in the results any change that
-allegedly improves the performance should be evaluated using some
-statistical test.
-The nature of the test will depend on the distribution of the
-performance measurement results, in particular, the
-[Student's t-test](https://en.wikipedia.org/wiki/Student%27s_t-test)
-assumes a normal distribution on the underlying data.
+I think one should use `std::chrono::steady_clock` if you are running C++
+microbenchmarks on Linux.  Using `rdtsc` is probably the only option
+if you need to measure things in the $$[100,1000]$$ nanoseconds range,
+but there are many pitfalls and caveats, read about the online before
+jumping into coding.
 
-Likewise, the number of measurements required to produce statistically
-valid results increases with the variability of the test.
-Our efforts to control the execution environment and produce more
-consistent results lowers the number of iterations required to produce
-valid results.
+Even with all this effort to control the consistency of the benchmark
+results, and even with a very simple, purely CPU bound test as used in
+this post the results exhibit some variability.
+Our benchmarks live in a world where only rigorous statistics can help
+from drawing the wrong conclusions.
 
-However, a developer wishing to draw conclusions about the improvement
-of their systems should perform
-[power analysis](https://en.wikipedia.org/wiki/Statistical_power)
-to determine what is the minimum number of iterations required.
+As I continue to learn how to run rigorous, reproducible
+microbenchmarks in Linux I keep having to pick up more and more
+statistical tools.
+I would like to talk about them in my next post.
 
 ### Future Work
 
-Page faults can introduce additional latency in program execution, and
+There are a few other things about locking down the system
+configuration that I left out and should not go unmentioned.
+Page faults can introduce latency in the benchmark, and
 can be avoided by using the `mlockall(2)` system call.
+I do not think these programs suffer too much from it, but changing
+the framework to make this system call is not too hard and sounds like
+fun.
+
 Similar to real-time CPU scheduling, the Linux kernel offers
 facilities to schedule I/O operations at different priorities via the
 `ioprio_set(2)` system calls.
-The JayBeams microbenchmark framework does not take advantage of
-either of these mechanisms.
-We believe that the components under consideration are not subject to
-substantial memory pressure or I/O load, and thus will not benefit
-from the additional settings.
-This could be changed in the future as more components need to be
-benchmarked with different requirements.
+Since these microbenchmarks perform no I/O I am assuming this will not
+matter, but possibly could and we should make these calls also.
+
+I have not found any evidence that setting the CPU affinity for the
+process (also known a pinning) helps in this case.
+It might do so, but I have no pretty graph to support that.
+It also wreaks havoc with non-maskable interrupts when the benchmark
+runs at higher priority than the interrupt priority.
+
+In some circles it is popular to create a container restricted to a
+single core and move all system daemons to that core.
+Then you run your system (or your microbenchmark) in any of the other
+cores.
+That probably would help, but it is so tedious to setup that I have
+not bothered.
 
 Linux 4.7 and higher include `schedutil` a CPU frequency scaling
 governor based on information provided by the scheduler
@@ -458,16 +533,14 @@ Likewise, the graphs for this post were generated using a R script,
 which is also
 [available](/public/2017-01-08-on-benchmarking-part-2/create-graphs.R).
 
-Though the data and graphs were generated using the JayBeams
-microbenchmark for `map_based_order_book_side<>` the results are not
-based on the specifics of this test, and are applicable to any
-CPU-bound, single-threaded microbenchmark.
-The data from these results was recorded, but not used in any
-subsequent phases of the analysis of `map_based_order_book_side<>` or
-`array_based_order_book_side<>`.
-
 The detailed configuration of the server hardware and software used to
 generate run these scripts is included in the comments of the 
 [csv](/public/2017-01-08-on-benchmarking-part-2/data.csv) file that
 accompanies this post.
 
+## Updates
+
+> I completely reworded this post, the first one read like a not very
+> good paper.  Same content, just better tone I think.  I beg
+> forgiveness from my readers, I am still trying to find a good style
+> for blogs.
