@@ -4,33 +4,59 @@ title: On Benchmarking, Part 1
 date: 2017-01-04 01:00
 ---
 
-Software engineers often evaluate the performance of their systems
+We software engineers often evaluate the performance of our systems
 through simple performance "experiments".  Then they make changes to
 the system, maybe to its environment, or to the code, run the
 "experiment" again and if the new results are faster they quickly
 declare success and claim they have improved the performance.
+I have done this many times, and have grown increasingly uncomfortable
+with the approach (or if you prefer) the standards in the field.
 
 I have no time, or the expertise, to describe all the different ways
 in which these experiments are often flawed.  Nor do I want to re-hash
 all the discussions in the literature as to the sad state of rigor 
-the software engineering (or computer science if you prefer) when it
-comes to designing, reporting, and evaluating performance experiments.
+the software engineering / computer science.
+I simply want to show one example of how to do it "Right"[tm].
 
-I will limit myself to showing one example on how to
-design a performance experiment as rigorously as I know how.
 I propose to describe the pitfalls that I try to avoid,
 and how I avoid them.
 And finally to report the results in enough detail that readers can
 decide if they agree with my conclusions.
-It is possible, indeed likely, that more knowledgeable readers than
+It is possible, indeed likely, that readers more knowledgeable than
 myself will find fault in my methods, my presentation, or my
 interpretation of the results.
-If so, I invite them to enter their
-[comments](https://github.com/coryan/coryan.github.io/issues/1)
-into a bug report I created for this purpose.
+If so, I invite them to enter their comments into a 
+[bug](https://github.com/coryan/coryan.github.io/issues/1)
+I have created for this purpose.
 
-## Detailed Design of the Class and Performance Impact
+I am going to use the order book classes in
+[JayBeams](https://gihub.com/coryan/jaybeams) that have exactly the
+same functionality, but very different performance to work through this
+example.
+These classes solve a common problem found when processing market data
+feeds.
+These feeds consist (large) of messages that tell you when
+a new order was *added*, *modified*, or *deleted* in the exchange.
+The messages also contain the price and (remaining) quantity of the
+order.
 
+The task is to keep a sorted list of all the prices that have one more
+or active orders, and the total quantity of the orders at that price.
+This is not a hard data structure to build.
+A balanced tree will do the trick, this is how
+`map_based_order_book_side<>` is implemented.
+However the prices received in an exchange are not random, they
+exhibit great locality of references, with the vast majority of
+add/modify/delete messages affecting prices very close to the current
+best price.
+One can try to exploit that by keeping an array for the places
+contiguous with with the best price, and fallback on the map for the
+less common case.
+That is how `array_based_order_book_side<>` is implemented.
+
+## Detailed Design 
+
+Let me start with some details about `array_based
 For this exercise we will consider the ITCH order book introduced in
 the [previous post]({{ page.previous.url }}).
 This is a template class ([array_based_order_book_side<>](https://github.com/coryan/jaybeams/blob/eabc035fc23db078e7e6b6adbc26c08e762f37b3/jb/itch5/array_based_order_book.hpp#L127))
@@ -53,8 +79,8 @@ best price.  All elements in the vector past that index have zero values.
 
 ![A diagram representing the array_based_order_book_side<> template
  class.  Two data structures are show, a balanced binary tree
- labeled "std::map<>", and a array, labeled "std::vector".
- An arrow shows that prices increase with the indices in the array.
+ labeled "std::map<>", and an array, labeled "std::vector".
+ An arrow shows that prices increase with the index in the array.
  Another arrow points to one of the cells in the array, the arrow is
  labeled "tk_inside".
  All cells after the one indicated by the tk_inside arrow are greyed
@@ -64,7 +90,7 @@ best price.  All elements in the vector past that index have zero values.
  "The array_based_order_book_side<> internal data structures.")
 
 Most `add_order` and `reduce_order` operations into this data
-structure are expected to only affect the values stored by the array.
+structure are expected to only affect the values stored in the array.
 The value of `tk_inside` changes when a new better price in inserted
 into the vector.
 This is a $$O(1)$$ operation, which simply updates the indices.
@@ -86,20 +112,20 @@ all those changes are to a contiguous range, which is
 be linear on the range size.
 
 Sometimes we will also need to move the `tk_inside` pointer beyond the
-capacity of the vector.  In this case we first make room by moving the
+capacity of the vector.  In this case we first make room by moving
 as many as $$vector.size$$ elements from the vector into the map.
-This can also be implemented as a amortized $$O(vector.size)$$
+This can also be implemented as an amortized $$O(vector.size)$$
 operation, because all the insertions happen at the same location, and
 `std::map::emplace_hint` is guaranteed to be amortized constant time.
 
 In short, most of the operations should execute in a short constant
-time that depends on the detail of their implementation.
+time that depends on the details of their implementation.
 Sometimes, we need to perform operations that are linear on the size of
 the array.
 
-We want to make some change this class so it can process a ITCH-5.0
-feed faster, that is, we want to make total time required to process a
-day worth of market data shorter.
+We want to make some changes to this class so it can process an
+ITCH-5.0 feed faster, that is, we want to shorten the total time
+required to process a day worth of market data.
 In a production environment we would have further constraints, maybe
 the total amount of memory must be limited, or we cannot allow the
 tail (say p99.9) latency to process each event to grow beyond a
@@ -136,7 +162,7 @@ design.
 There are too many variables that we will need to control for: the I/O
 subsystem, the size of the buffer cache, any programs that are
 competing for that cache, any changes to the decompression and/or I/O
-libraries, etc. etc.
+libraries, etc.
 
 We want to run an experiment that isolates only the component that we
 want to measure.  Therefore we need to use a synthetic benchmark, a
@@ -157,11 +183,11 @@ We recall from our [previous post]({{ page.previous.url }}) that the
 class we are benchmarking was specifically designed to take advantage
 of the distribution characteristics of the input data.
 In the common case the event should be close to the inside, and we
-exploit that locality by keep the inside prices and prices close to it
+exploit that locality by keeping the inside prices (and prices close to it)
 in an array, that has better complexity guarantees for search and
 update.
-Our test data must have this locality property.  Not so much that it
-unfairly favors the data structure design.  But not so little that the
+Our test data must have this locality property: not so much that it
+unfairly favors the data structure design, but not so little that the
 algorithm is disadvantaged either.
 
 Two techniques come to mind to test with realistic data:
@@ -178,14 +204,9 @@ Two techniques come to mind to test with realistic data:
 
 Because it is easier to setup and run the test with synthetic data we
 chose to do so.
-There are limitations on this approach: the synthetic data may lack
-fidelity, and fail to capture important characteristics of the problem
-in production.
-
-An interesting question for future analysis would be to capture how
-many times does real data creates the expensive operations described
-earlier, and compare those rates with the rates observed with the
-synthetic data.
+There are limitations to this approach: the synthetic data may lack
+fidelity, and may also fail to capture important characteristics of
+the problem in production.
 
 The reader may disagree with my assumptions about how this (and other)
 decisions impact the validity of the results.
@@ -195,7 +216,7 @@ reader.
 A reader that disagrees is welcome to reproduce the experiment, or
 design a better one and show that the analysis was incorrect.
 
-This is the how the scientific process (and good engineering) works.
+This is how good engineering (and the scientific process) works.
 We disclose our work, we are rigorous in our descriptions,
 future engineers improve on that work to produce even better systems.
 There is no shame in making assumptions to allow the work to be completed,
