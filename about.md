@@ -11,8 +11,8 @@ As far as I can tell this is a perfect forum for me to talk at length
 about things that nobody cares about.
 
 Mostly I wanted a place to express my opinions and thoughts about
-software engineering and such.  Sometimes I will even believe the
-opinions that I express about software engineering and such.
+software engineering.  Sometimes I will even believe the
+opinions that I express.
 I also wanted to be able to describe some of the software projects I
 write as a hobby.
 
@@ -23,8 +23,7 @@ A husband, a father, a former rock climber, a former cross-fitter.
 This blog will likely deal mostly with my software development
 interests, so for those purposes:  a software engineering manager by
 trade.  A sofware engineer by training and inclination.  I currently
-work for Google, leading a few SRE teams, what the rest of the world
-seems to call DevOps, but at Google everything has a different name.
+work for Google, leading a few Site-Reliability Engineering (SRE) teams.
 Before that I worked for a decade in high-frequency trading leading a
 few software engineering and Ops teams.
 Before that I was a PhD student, in
@@ -57,7 +56,7 @@ OpenCL.
 I have been known to craft a webpage or two, but they do not look
 nice.  If this one does, is because I took the templates from
 [Lanyon](http://lanyon.getpoole.com/) and did not mess with them (too much).
-Their [License](/Lanyon-LICENSE.md) is reproduced on this site.  I
+Their [License](/Third-Party-Licenses.md) is reproduced on this site.  I
 have been known to craft a GUI or two, but the 
 last time was on X11/Motif, and (you can laugh) most of the graphics
 were plain Xlib, with some OpenGL added later.  That is to say, I
