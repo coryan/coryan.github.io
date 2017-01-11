@@ -2,7 +2,6 @@
 layout: post
 title: On Benchmarking, Part 2
 date: 2017-01-08 04:00
-draft: true
 ---
 
 > This is a long series of posts where I try to teach myself how to
