@@ -482,7 +482,7 @@ setting any of the scheduling parameters fails.
 
 I think one should use `std::chrono::steady_clock` if you are running C++
 microbenchmarks on Linux.  Using `rdtsc` is probably the only option
-if you need to measure things in the $$[100,1000]$$ nanoseconds range,
+if you need to measure things in the *[100,1000]* nanoseconds range,
 but there are many pitfalls and caveats, read about the online before
 jumping into coding.
 
