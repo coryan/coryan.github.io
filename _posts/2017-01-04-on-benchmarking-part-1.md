@@ -1,249 +1,459 @@
 ---
 layout: post
 title: On Benchmarking, Part 1
-date: 2017-01-04 01:00
+date: 2017-01-04 12:00
 ---
 
-We software engineers often evaluate the performance of our systems
-through simple performance "experiments".  Then they make changes to
-the system, maybe to its environment, or to the code, run the
-"experiment" again and if the new results are faster they quickly
-declare success and claim they have improved the performance.
-I have done this many times, and have grown increasingly uncomfortable
-with the approach (or if you prefer) the standards in the field.
+My [previous post](2017/01/03/optimizing-the-itch-order-book/)
+included a performance comparison between two implementations of a
+data structure.
+I have done this type of comparison many times, and have grown
+increasingly uncomfortable with the lack of scientific and statistical
+rigor we use in our field (I mean software engineering, or computer
+science, or computer engineering, or any other name you prefer)
+when reporting such results.
 
-I have no time, or the expertise, to describe all the different ways
-in which these experiments are often flawed.  Nor do I want to re-hash
-all the discussions in the literature as to the sad state of rigor 
-the software engineering / computer science.
-I simply want to show one example of how to do it "Right"[tm].
+Allow me to criticize my own post to illustrate what I mean.
+The post reported on the results of benchmarking two implementations
+of a data structure.
 
-I propose to describe the pitfalls that I try to avoid,
+* <a name="bad-no-context"></a>I did not provide a context: what domain
+  those this problem arise in? Why is this data structure interesting
+  at all?
+
+* <a name="bad-no-problem-description"></a>I did not provide a description of
+  the problem the data structure is trying to solve.  Maybe there is a
+  much better solution that I am not aware of, and all the analysis
+  goes to waste.
+
+* <a name="bad-efficiency-not-justified"></a>I did not provide any
+  justification for why the data structure efficiency would be of
+  interest to anybody.
+
+* <a name="bad-no-data-structure-description"></a>I did not include a
+  description of the data structure.  How can the
+  readers understand if there is any reasonable expectation of
+  improved performance without this?  Or how can they evaluate if the
+  inputs I used are cleverly working around the weaknesses in the data
+  structure?
+
+A reader of this blog may be expected (and this is debatable) to know
+that I largely write about
+[JayBeams](http://github.com/coryan/jaybeams).
+I assumed the reader might be familiar with these topics, but that is
+not necessarily the case.
+The gentle reader may land on this post without
+having read anything in this blog.
+Or may not study these ramblings and memorize every utterance of this
+madman of a blogger.
+In any case, it would have to be a very persistent reader if they were
+to find the actual *version* of the JayBeams project used to prepare
+the post, and that information was nowhere to be found either.
+
+Furthermore, and this is less forgivable, my post did not answer any
+of the following questions:
+
+* <a name="bad-not-reproducible"></a>How could anybody reproduce these tests?
+  * What was the hardware and software platform used for this test?
+  * What version of JayBeams did I use for the test?
+  * What version of the compiler, libraries, kernel, etc. did I use?
+  * Was there any additional load on the workstation when the tests
+    were running?  Could that affect the tests?  Why or why not?
+  * Any particular settings or configuration that is not the defaults?
+  * If so, how can anybody rebuild those settings?
+
+* <a name="bad-no-test-objective"></a>What was the test objective?
+  * Was the result good or bad?
+
+* <a name="bad-faster-not-operationalized"></a>What exactly do I mean
+  by "faster"?  How is that operationalized?
+
+* <a name="bad-no-population-definition"></a>I claimed that the new
+  class was not faster for all possible inputs. The assertion is that the
+  code is faster for the inputs I expect to see in production, however:
+  * How do you characterize those inputs for which is it faster?
+  * Even from the brief description, it sounds there is a very large
+    space of acceptable inputs.  Why do I think the results apply
+    for most of the acceptable inputs if you only tested with a few?
+  * How many inputs would you need to sample to be confident in the results?
+
+* <a name="bad-no-minimum-effect-size"></a>Was the effect (the
+  difference in performace) interesting or too small to matter? 
+
+* <a name="bad-no-iteration-count-not-included"></a>How many
+  iterations of the test did I ran? 
+
+* <a name="bad-no-power-analysis"></a>Did the test have enough
+  statistical power to measure what I wanted to measure? Or in simpler terms:
+  * Why is that many iterations the right number?
+  * Is that number of iterations high enough to not detect the effect
+    I want to detect?
+  * How unlucky would I have to be to miss the effect if it is there?
+
+* <a name="bad-no-statistical-significance"></a>Was the result
+  statistically significant? Or in simpler terms: 
+  * How confident am I that the result cannot be explained by luck alone?
+
+* <a name="bad-median-not-justified"></a>I reported the median latency
+  (and a number of other percentiles): 
+  why are those statistics relevant or appropriate for this problem?
+
+If those questions are of no interest to you, then this is not the
+series of posts that you want to read.
+If you think those questions are important, or peak your interest,
+or you think they may be applicable to similar benchmarks you have
+performed in the past, or plan to perform in the future,
+then I hope to answer them in this series of posts.
+
+I propose to use the "measuring the performance improvements of
+`array_based_order_book_side<>` vs `map_based_order_book_side<>` as an
+example of how to rigorously answer those questions.
+Later it will become evident that this example is too easy, so I will
+also use "measuring the performance of one version of
+`array_based_order_book_side<>` against another version" as an example
+of what to measure.
+As I go along, I will describe the pitfalls that I try to avoid,
 and how I avoid them.
 And finally to report the results in enough detail that readers can
 decide if they agree with my conclusions.
+
 It is possible, indeed likely, that readers more knowledgeable than
 myself will find fault in my methods, my presentation, or my
-interpretation of the results.
+interpretation of the results are incorrect.
+They may be able to point out other pitfalls that I did not consider,
+or descriptions that are imprecise, or places where my math was wrong,
+or even simple spelling or grammar mistakes.
 If so, I invite them to enter their comments into a 
 [bug](https://github.com/coryan/coryan.github.io/issues/1)
 I have created for this purpose.
 
-I am going to use the order book classes in
-[JayBeams](https://gihub.com/coryan/jaybeams) that have exactly the
-same functionality, but very different performance to work through this
-example.
-These classes solve a common problem found when processing market data
-feeds.
-These feeds consist (large) of messages that tell you when
-a new order was *added*, *modified*, or *deleted* in the exchange.
-The messages also contain the price and (remaining) quantity of the
-order.
+## The Problem of Building an Order Book
 
-The task is to keep a sorted list of all the prices that have one more
-or active orders, and the total quantity of the orders at that price.
-This is not a hard data structure to build.
-A balanced tree will do the trick, this is how
-`map_based_order_book_side<>` is implemented.
-However the prices received in an exchange are not random, they
+In this section I try to give the reader some context about the
+problem domain ([ref](#bad-no-context)),
+explain what specific problem these data structures are trying to
+solve ([ref](#bad-no-problem-description)),
+and try to motivate the need for efficient data structures for this
+problem ([ref](#bad-no-efficiency-not-justified)).
+
+If you are familiar with market feeds and order books you may want to
+skip tho the [next section](#detailed-design),
+it will be either boring or irritating to you.
+If you are not familiar, then this is a very rushed overview, there is
+an [earlier post](/2015/08/29/validate-cross-correlation-part-1/) with
+a slightly longer introduction to the topic.
+
+Some market data feeds largely consist of messages that tell you when
+a new order was *added*, *modified*, or *deleted* in the exchange (or
+whatever the source of the feed is, not all are exchanges).
+The messages include a lot of information about the order, but for my
+purpose in this series of posts the important bits are
+the side of the order: is it a order to buy or sell securities;
+the price of the order: what is the maximum (for buy) or minimum (for
+sell) price that the investor placing the order will accept;
+and the quantity: the number of shares (or more generally *units*) the
+investor is willing to transact.
+
+With this stream of messages one can build a full picture of all the
+activity in the exchange, how many orders are active at any point, at
+what prices, how much liquidity is available at each price point,
+which orders arrived first, sometimes "where is my order in the
+queue", and much more.
+The process of building this picture of the current state of the
+exchange is called *Building the Book*, and your *Book* is the data
+structure (or collection of data structures) that maintains that
+picture.
+In many cases you only need to keep a summary of the full picture.
+This arises because one of the most common questions your book must be
+able to answer are: what is the price of the highest buy order active
+right now in a security?  And also: how many total shares are
+available at that best buy price for that security?  And obviously:
+what about the best sell price and the number of shares at that best
+price for that security?
+
+The natural way to solve this problem is keep a tally of how many
+shares are available to buy at each price level, and how many shares
+are available to sell at each price level.
+The tally must be sorted by price (in opposite orders for buy
+and sells) because when the best price level disappears (all active
+orders at the best price are modified or canceled) you need to quickly
+find the next one.
+You must naturally keep a different instance of such tally for each
+security, after you are being asked about the best price for GOOG, not
+for MSFT.
+
+The challenge is that these feeds can have very high throughput
+requirements, it is
+not rare to see hundreds of thousands of messages in a second.
+That would not be too bad if one could shard the problem
+across multiple machines, or at least multiple cores.
+Alas! this is not always the case, for example, the Nasdaq ITCH-5.0
+feed does not include symbol
+information in neither the modify nor delete messages, so one much
+process such messages in order until the order they refer to is found,
+the symbol is identified, at which point one may shard to a different
+server or core.
+
+Furthermore, the messages are not nicely and evenly spaced in these
+feeds.
+In my measurements I have seen that up to 1% of the messages arrived
+in less than 300ns after you receive the previous one.
+Yes, that is **nano**seconds.
+If you want to control the latency of your book builder to the p99
+level -- and you almost always want to do in the trading space -- it
+is desirable to completely process 99% of the messages before
+the next one arrives.
+In other words, you roughly have 300ns to process most messages.
+
+Suffice is to say that the data structure involved in processing a
+book must be extremely efficient to deal with peak throughput without
+introducing additional lately.
+
+## Detailed Design
+
+In this section I will try to give a more detailed description of the
+classes involved, so the reader can understand the tradeoffs they make
+and any weaknesses they might have
+([ref](#bad-no-data-structure-description)).
+If the reader finds this section too detailed they can
+[skip it](#benchmark-design).
+
+### The Map Based Order Book
+
+In JayBeams, a relatively straightforward implementation of the order
+book tally I described above
+is provided by `map_based_order_book_side<>`
+[[1]](https://github.com/coryan/jaybeams/blob/eabc035fc23db078e7e6b6adbc26c08e762f37b3/jb/itch5/map_based_order_book.hpp#L52).
+It is implemented using a `std::map<>`, indexed by price and
+containing the total quantity available for that price.
+
+The class has two operations that are used to process all add, modify,
+and delete messages from the market feed.
+`reduce_order()` processes both delete and modify messages, because in
+ITCH-5.0 all modifications reduce the size of an order.  Naturally
+`add_order()` processes messages that create a new order.
+The class provides member functions to access the best price and
+quantity, which simply call the `begin()` and `rbegin()` in the
+internal `std::map<>` member variable.
+
+Therefore, finding the best and worst prices are *O(1)* operations, as
+C++ makes this
+[complexity guarantee](http://en.cppreference.com/w/cpp/container/map/begin)
+for the `begin()` and `rbegin()` member functions.
+Likewise, the `add_order()` and `reduce_order()` member functions are
+*O(log(N))* on the number of existing price levels, since those are
+the
+[complexity guarantees](http://en.cppreference.com/w/cpp/container/map/find)
+for the find and erase member functions.
+Alternatively, we can bound this with *O(log(M))* where *M* is the
+number of previous orders received, as each order creates at most one
+price level.
+
+### The Array Based Order Book
+
+In the previous post, I made a number of observations on the
+characteristics of a market feed:
+(1) I reported that market data messages
 exhibit great locality of references, with the vast majority of
 add/modify/delete messages affecting prices very close to the current
-best price.
-One can try to exploit that by keeping an array for the places
-contiguous with with the best price, and fallback on the map for the
-less common case.
-That is how `array_based_order_book_side<>` is implemented.
+best price,
+(2) prices only appear in discrete increments, which make them suitable to
+represent by integers,
+(3) Integers that appear in a small range can represent indices into an
+array,
+(4) and access to such arrays is *O(1)*, and also makes efficient use
+of the cache.
+One can try to exploit all of this by keeping an array for the prices
+contiguous with with the best price.
+Because the total range of prices is rather large, we cannot keep all
+prices in an array, but we can fallback on the `std::map<>`
+implementation for the less common case.
 
-## Detailed Design 
+My friend Gabriel used all the previous observations to design and
+implement `array_based_order_book_side<>`.
+The class offers an identical interface to
+`map_based_order_book_side<>`, with `add_order()` and `remove_order()
+member functions, and with member functions to access the best and
+worst available prices.
 
-Let me start with some details about `array_based
-For this exercise we will consider the ITCH order book introduced in
-the [previous post]({{ page.previous.url }}).
-This is a template class ([array_based_order_book_side<>](https://github.com/coryan/jaybeams/blob/eabc035fc23db078e7e6b6adbc26c08e762f37b3/jb/itch5/array_based_order_book.hpp#L127))
-with two main member functions:
-
-* `add_order`: increases the quantity of shares at a given price.
-* `reduce_order`: reduces the quantity of shares at a given price.
-
-The template parameter controls whether this class represents the BUY
-or SELL side of the book.  We illustrate how this class is designed
-for the BUY side, the SELL side is analogous.
-
-As shown in the following diagram, the class maintains two data
-structures.  A vector representing the best (highest in the case of
-BUY) prices, a `std::map<>` (which is typically some kind of balanced
-tree) to represent the prices that do not fit in the vector.
-One index, `tk_begin_top` tracks the best price in the vector.  A
-second index `tk_inside` tracks which location in the vector has the
-best price.  All elements in the vector past that index have zero values.
+The implementation is completely different though.
+The class maintains two data structures:
+(1) a vector representing the best (highest in the case of
+buy) prices,
+and (2) a `std::map<>` -- which is typically some kind of balanced
+tree -- to represent the prices that do not fit in the vector.
+In addition, it maintains 
+`tk_begin_top` the tick level of the first price price in the vector,
+and `tk_inside` the index of the best price.
+All elements in the vector past that index have zero values.
+The vector size is initialized when a class instance is constructed,
+and does not change dynamically.
 
 ![A diagram representing the array_based_order_book_side<> template
- class.  Two data structures are show, a balanced binary tree
- labeled "std::map<>", and an array, labeled "std::vector".
- An arrow shows that prices increase with the index in the array.
- Another arrow points to one of the cells in the array, the arrow is
- labeled "tk_inside".
- All cells after the one indicated by the tk_inside arrow are greyed
- out.
- The first cell is labled "tk_begin_top".
- ](/public/2017-01-04-array_based_order_book_side-basic.svg
+ class.
+ ](/public/2017-01-04-on-benchmarking-part-1/array_based_order_book_side-basic.svg
  "The array_based_order_book_side<> internal data structures.")
 
-Most `add_order` and `reduce_order` operations into this data
-structure are expected to only affect the values stored in the array.
-The value of `tk_inside` changes when a new better price in inserted
-into the vector.
-This is a $$O(1)$$ operation, which simply updates the indices.
-If a `reduce_order` operation sets the value to zero, the data
-structure needs to search backwards through the vector until it finds
-a non-zero value.
-This is a $$O(vector.size())$$ operation, but we expect
-that over 90% of these searches finish in less than $$14$$ steps,
-and in practice no more than $$vector.size() / 2$$ elements need to be
-moved.
+The value of `tk_inside` changes when a new order with a better price
+than the current best is received.  Analyzing the complexity of this
+is better done by cases:
 
-In rare occassions, we expect the vector to be full of zeroes, and we
-need to "move" values from the map into the vector.  This
-`move_bottom_to_top` function is a
-$$O(\ln(map.size)  + vector.size)$$ operation,
-because while it needs to change the map up to $$vector.size$$ times,
-all those changes are to a contiguous range, which is
-[guaranteed](http://en.cppreference.com/w/cpp/container/map/erase) to
-be linear on the range size.
+#### Complexity of `add_order()`
 
-Sometimes we will also need to move the `tk_inside` pointer beyond the
-capacity of the vector.  In this case we first make room by moving
-as many as $$vector.size$$ elements from the vector into the map.
-This can also be implemented as an amortized $$O(vector.size)$$
-operation, because all the insertions happen at the same location, and
-`std::map::emplace_hint` is guaranteed to be amortized constant time.
+There are basically three cases:
 
-In short, most of the operations should execute in a short constant
-time that depends on the details of their implementation.
-Sometimes, we need to perform operations that are linear on the size of
-the array.
+1. We expect the majority of the calls to the `add_order()`
+   member function to affects a price that is close to the current 
+   `tk_inside`.  In this case the member function simply updates one
+   of the values of the array, a *O(1)* operation.
+2. Sometimes the new price will be past the capacity assigned to the
+   array.  In this case the current values in the array need to be
+   flushed into the map.  This is a *O(K)* operation, where *K* is the
+   capacity assigned to the array, because all *K*
+   insertions happen at the same location, and
+   `std::map::emplace_hint` is guaranteed to be amortized constant
+   time.
+3. Sometimes the price is a price worse than `tk_begin_top`, in which
+   the complexity is *O(log(N))* same as the map-based class.
 
-We want to make some changes to this class so it can process an
-ITCH-5.0 feed faster, that is, we want to shorten the total time
-required to process a day worth of market data.
-In a production environment we would have further constraints, maybe
-the total amount of memory must be limited, or we cannot allow the
-tail (say p99.9) latency to process each event to grow beyond a
-certain limit.
+#### Complexity of `reduce_order()`
 
-## We need a benchmark
+There are also basically three cases:
 
-Running a program,
+1. We also expect the majority of the calls to `reduce_order()` to
+   member function to affects a price that is close to the current 
+   `tk_inside`.  As long as the new total quantity is not zero simply
+   updates one of the values of the array, a *O(1)* operation.
+2. If the new quantity is zero the class needs to find the new best
+   price.  In most cases this is a short search backwards through the
+   array.  But if the search through the array is exhausted the
+   implementation needs to move *vector.size()/2* prices from the map
+   to the vector.  Again this is a *O(vector.size())* operation
+   because erasing a range of prices in the map is guaranteed to be
+   linear on the number of elements erased.
+3. If the price is worse than `tk_begin_top` then this is similar to
+   the map-based class and the complexity is *O(log(N))*.
+
+#### Summary of the Complexity
+
+In short, we expect `array_based_order_book_side<>` to behave as a
+*O(1)* data structure for the majority of the messages.
+This expectation is based on receiving very few messages affecting
+prices far away from the inside.
+In those cases the class behaves actually worse than
+`map_based_order_book_side<>`.
+
+## Benchmark Design
+
+I tried running an existing program,
 such as
 [itch5inside](https://github.com/coryan/jaybeams/blob/eabc035fc23db078e7e6b6adbc26c08e762f37b3/tools/itch5inside.cpp),
-and measuring how its performance changes as we modify the
-`array_based_order_book_side` class has multiple problems:
+and measuring how its performance changes with each implementation.
+I ran into a number of problems:
 
-* The program needs to read the source data from a file, this file is
+1. The program needs to read the source data from a file, this file is
 about 6 GiB compressed, so any execution of the full program is also
 measuring the performance of the I/O subsystem.
 
-* The program needs to decompress the file, parse it, and filter the
+2. The program needs to decompress the file, parse it, and filter the
 events by symbol, directing different events to different instances of
 `array_order_book_side<>`.  So once more, an execution of the full
-program is measuring many other components beyond the one we want to
+program is measuring many other components beyond the one I want to
 optimize.
 
-* The program takes around 35 minutes to process a day worth of market
+3. The program takes around 35 minutes to process a day worth of market
 data.  We expect that multiple runs will be needed to "average out"
-(we will not use averages, no peeking) the variation caused by all the
-operating system noise (we will control for that too, but no peeking
-again).
+the variation caused by all the
+operating system noise, so completing a test could take hours.
 
-Such long elapsed times will severely limit our ability to iterate
+Such long elapsed times will severely limit my ability to iterate
 quickly.
 More importantly, running the full program is poor experimental
 design.
-There are too many variables that we will need to control for: the I/O
+There are too many variables that we will need to control: the I/O
 subsystem, the size of the buffer cache, any programs that are
 competing for that cache, any changes to the decompression and/or I/O
 libraries, etc.
 
-We want to run an experiment that isolates only the component that we
-want to measure.  Therefore we need to use a synthetic benchmark, a
-proxy for the performance of the overall program.
+I would prefer to run an experiment that isolates only the component
+that I want to measure.
+I do not see any way to do this other than using a synthetic
+benchmark.
+Admittedly this is a proxy for the performance of the overall
+program, but at least I can iterate quickly and test the big program
+again at the end.
 
-This is not uncommon in software engineering.  Testing the performance
-of large systems is expensive in engineering time for preparing and
-executing the test.  Not to mention the hardware and operational costs
-of running separate, isolated, instances of the system just for
-testing its performance.
-Engineers often evaluate the performance of smaller components, or
-smaller subsystems, before running load or performance tests on the
-full system.
+This is more or less standard practice, and I do not think too
+controversial.
 
 ## Obtaining Representative Data for the Benchmark
 
-We recall from our [previous post]({{ page.previous.url }}) that the
-class we are benchmarking was specifically designed to take advantage
-of the distribution characteristics of the input data.
-In the common case the event should be close to the inside, and we
-exploit that locality by keeping the inside prices (and prices close to it)
-in an array, that has better complexity guarantees for search and
-update.
-Our test data must have this locality property: not so much that it
-unfairly favors the data structure design, but not so little that the
-algorithm is disadvantaged either.
+The tricky bit here is that the array-based class was specifically
+designed to take advantage of the distribution characteristics of the
+input data.
+I need to create test data that has this locality property.
+And it must have some kind of goldi-locks medium:
+not so much locality of prices that it unfairly favors the array-based
+design, but not so little that it unfairly disadvantages that design
+either.
 
-Two techniques come to mind to test with realistic data:
+I thought about two alternatives for this problem:
 
-* We can use *traces* from the existing data set.  Cache or otherwise
-  save a trace in memory and execute it repeatedly against an instance
-  of the class.  However, we would need to capture multiple traces to
-  ensure we have a representative sample of the data, which is also
-  challenging.
+* I could use *traces* from the existing data set.  Somehow 
+  save a trace, load it into memory and run the
+  something-something-based-book against this data.
+  However, we would need to capture multiple traces to
+  ensure we have a representative sample of the data.
+  And I have a limited amount of market data at my disposal, so this
+  is all very limiting.
 
-* We can *generate* data with similar statistical distribution.  The
+* I can try to *generate* data with similar statistical distribution.  The
   data may not have the same fidelity of a trace, but it can be easily
   varied by regenerating the data.
 
-Because it is easier to setup and run the test with synthetic data we
-chose to do so.
-There are limitations to this approach: the synthetic data may lack
-fidelity, and may also fail to capture important characteristics of
-the problem in production.
+Because it is easier to setup and run the test with synthetic data I
+chose the second approach.
+In addition to the lack of fidelity, there may be characteristics
+about the data that I did not think about, and make the class behave
+differently in production.
+I think I am addressing those limitations by planning to run the full
+test separate.
 
-The reader may disagree with my assumptions about how this (and other)
-decisions impact the validity of the results.
-That is their privilege, and in fact they might be correct.
-My duty is to disclose the assumptions, and explain myself to the
-reader.
-A reader that disagrees is welcome to reproduce the experiment, or
-design a better one and show that the analysis was incorrect.
+By the way, if the reader disagrees with my assumptions about how this
+(and other) decisions impact the validity of the results,
+please do let me know in the
+[bug](https://github.com/coryan/coryan.github.io/issues/1).
+I am trying to be super transparent about my assumptions,
+if I am doing my work right you should be able to reproduce the
+experiment with different assumptions, show why I am wrong, and we
+both learn something.
+That sounds suspiciously close to the scientific method.
 
-This is how good engineering (and the scientific process) works.
-We disclose our work, we are rigorous in our descriptions,
-future engineers improve on that work to produce even better systems.
-There is no shame in making assumptions to allow the work to be completed,
-we just need to state them clearly and qualify our conclusions on the
-basis of those assumptions.
 
 ## Benchmark Setup
 
-We have implemented a
+I implemented the
 [benchmark](https://github.com/coryan/jaybeams/blob/eabc035fc23db078e7e6b6adbc26c08e762f37b3/jb/itch5/bm_order_book.cpp),
-called `bm_order_book`, which
-is able to test both the `array_based_order_book_side` and
-`map_based_order_book_side` class templates.
+described above.
+It is able to test either the `array_based_order_book_side` and
+`map_based_order_book_side` template classes
 
-A more detailed description of the benchmark internals and its results
-are the subject of a future post.
+The more detailed description of the benchmark internals and how to
+configure a system to run such benchmarks is the subject of the next
+post.
 
 ## Notes
 
-In this post we have referred all links to a specific version
+In this post I have set all links to a specific version
 ([eabc035fc23db078e7e6b6adbc26c08e762f37b3](https://github.com/coryan/jaybeams/tree/eabc035fc23db078e7e6b6adbc26c08e762f37b3))
-of the code.
+of the [JayBeams](https://github.com/coryan/jaybeams/) project.
 Links to the current version are more succinct, and future readers may
 find that bugs in the old code have been fixed in newer versions.
 We prefer to use links to fixed versions because it makes the
-references and links *reproducible*.
+references and links *reproducible*, partially addressing
+the [problem](#bad-not-reproducible) I highlighted earlier.
 
 > Updates: [Gabriel](https://github.com/gfariasr) caught a mistake in
 > my complexity analysis, the O() bounds were correct, but I was
 > playing fast and lose with the constant factors.
+> Updates: Major rewording so I do not sound like a pompous ass.
