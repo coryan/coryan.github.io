@@ -146,9 +146,7 @@ top5.raw <- raw[head(order(raw$NSamples, decreasing=TRUE), n=5),]
 top5.raw[,c('Name', 'NSamples')]
 {% endhighlight %}
 {% highlight rout %}
-{% highlight r %}
           Name  NSamples
-{% endhighlight %}
 8173 __aggregate__ 206622013
 6045           QQQ   2604819
 7814           VXX   2589224
