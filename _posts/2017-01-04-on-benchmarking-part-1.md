@@ -17,86 +17,90 @@ Allow me to criticize my own post to illustrate what I mean.
 The post reported on the results of benchmarking two implementations
 of a data structure.
 
-* <a name="bad-no-context"></a>I did not provide a context: what domain
-  those this problem arise in? Why is this data structure interesting
-  at all?
+**I1:**<a name="bad-no-context"></a> I did not provide a context: what
+domain those this problem arise in? Why is this data structure
+interesting at all?
 
-* <a name="bad-no-problem-description"></a>I did not provide a description of
-  the problem the data structure is trying to solve.  Maybe there is a
-  much better solution that I am not aware of, and all the analysis
-  goes to waste.
+**I2:**<a name="bad-no-problem-description"></a> I did not provide a
+description of the problem the data structure is trying to solve.
+Maybe there is a much better solution that I am not aware of, one of
+the readers may point this potential solution to me, and all
+the analysis is a waste of time.
 
-* <a name="bad-efficiency-not-justified"></a>I did not provide any
-  justification for why the data structure efficiency would be of
-  interest to anybody.
+**I3:**<a name="bad-efficiency-not-justified"></a> I did not provide any
+justification for why the data structure efficiency would be of
+interest to anybody.
 
-* <a name="bad-no-data-structure-description"></a>I did not include a
-  description of the data structure.  How can the
-  readers understand if there is any reasonable expectation of
-  improved performance without this?  Or how can they evaluate if the
-  inputs I used are cleverly working around the weaknesses in the data
-  structure?
+**I4:**<a name="bad-no-data-structure-description"></a> I did not include a
+description of the data structure.  With such a description the reader
+can understand why is it likely that the data structure will perform
+better. Better yet, they can identify the weakness in the data
+structure, and evaluate if the analysis considers those weaknesses.
 
-A reader of this blog may be expected (and this is debatable) to know
-that I largely write about
-[JayBeams](http://github.com/coryan/jaybeams).
-I assumed the reader might be familiar with these topics, but that is
+I assumed that a reader of this blog, where I largely write about
+[JayBeams](http://github.com/coryan/jaybeams),
+should be familiar with these topics, but that is
 not necessarily the case.
-The gentle reader may land on this post without
-having read anything in this blog.
-Or may not study these ramblings and memorize every utterance of this
-madman of a blogger.
+The gentle reader may land on this post as the result of a search, or
+because a friend recommends a link.
 In any case, it would have to be a very persistent reader if they were
 to find the actual *version* of the JayBeams project used to prepare
 the post, and that information was nowhere to be found either.
 
 Furthermore, and this is less forgivable, my post did not answer any
-of the following questions:
+of these other questions:
 
-* <a name="bad-not-reproducible"></a>How could anybody reproduce these tests?
-  * What was the hardware and software platform used for this test?
-  * What version of JayBeams did I use for the test?
-  * What version of the compiler, libraries, kernel, etc. did I use?
-  * Was there any additional load on the workstation when the tests
-    were running?  Could that affect the tests?  Why or why not?
-  * Any particular settings or configuration that is not the defaults?
-  * If so, how can anybody rebuild those settings?
+**I5:**<a name="bad-no-benchmark-description"></a> How exactly is the
+benchmark constructed?
+How does it measure time?
+Why is that a good choice for time measurement?
+What external variables impact the results, such as system load,
+impact the results and how did I control for them?
 
-* <a name="bad-no-test-objective"></a>What was the test objective?
-  * Was the result good or bad?
+**I6:**<a name="bad-no-minimum-effect-size"></a> What exactly is the
+definition of success and do the results meet that definition? Or in
+the language of statistics:
+Was the effect interesting or too small to matter?
 
-* <a name="bad-faster-not-operationalized"></a>What exactly do I mean
-  by "faster"?  How is that operationalized?
+**I7:**<a name="bad-faster-not-operationalized"></a>What exactly do I mean
+by "faster", or "better performance", or "more efficient"?  How is
+that operationalized?
 
-* <a name="bad-no-population-definition"></a>I claimed that the new
-  class was not faster for all possible inputs. The assertion is that the
-  code is faster for the inputs I expect to see in production, however:
-  * How do you characterize those inputs for which is it faster?
-  * Even from the brief description, it sounds there is a very large
-    space of acceptable inputs.  Why do I think the results apply
-    for most of the acceptable inputs if you only tested with a few?
-  * How many inputs would you need to sample to be confident in the results?
+**I8:**<a name="bad-no-population-definition"></a> At least I was
+explicit in declaring that I only expected the
+`array_based_order_book_side<>` to the faster for the inputs that one
+sees in a normal feed, but that it was worse with suitable constructed
+inputs.  However, this leaves other questions unanswered:
+How do you characterize those inputs for which it is expected to be
+faster?
+Even from the brief description, it sounds there is a very large
+space of such inputs.  Why do I think the results apply
+for most of the acceptable inputs if you only tested with a few?
+How many inputs would you need to sample to be confident in the results?
 
-* <a name="bad-no-minimum-effect-size"></a>Was the effect (the
-  difference in performace) interesting or too small to matter? 
+**I9:**<a name="bad-no-power-analysis"></a> How unlucky would I have to
+be to miss the effect if it is there?  Or if you prefer: how likely
+is it that we will detect the effect if it is there?  In the
+language of statistics:
+Did the test have enough statistical power to measure what I
+wanted to measure?
+Is that number of iterations (a/k/a samples) high enough?
+For that matter, how many iterations of the test did I ran? 
 
-* <a name="bad-no-iteration-count-not-included"></a>How many
-  iterations of the test did I ran? 
+**I10:**<a name="bad-no-statistical-significance"></a> How confident
+am I that the results cannot be explained by luck alone?  Or in the
+language of statistics: Was the result statistically significant?
+A what level?
 
-* <a name="bad-no-power-analysis"></a>Did the test have enough
-  statistical power to measure what I wanted to measure? Or in simpler terms:
-  * Why is that many iterations the right number?
-  * Is that number of iterations high enough to not detect the effect
-    I want to detect?
-  * How unlucky would I have to be to miss the effect if it is there?
+**I11:**<a name="bad-median-not-justified"></a> I reported the median
+latency (and a number of other percentiles): 
+why are those statistics relevant or appropriate for this problem?
 
-* <a name="bad-no-statistical-significance"></a>Was the result
-  statistically significant? Or in simpler terms: 
-  * How confident am I that the result cannot be explained by luck alone?
-
-* <a name="bad-median-not-justified"></a>I reported the median latency
-  (and a number of other percentiles): 
-  why are those statistics relevant or appropriate for this problem?
+**I12:**<a name="bad-not-reproducible"></a> How could anybody reproduce
+these tests?
+What was the hardware and software platform used for it?
+What version of JayBeams did I use for the test?
+What version of the compiler, libraries, kernel, etc. did I use?
 
 If those questions are of no interest to you, then this is not the
 series of posts that you want to read.
@@ -105,13 +109,15 @@ or you think they may be applicable to similar benchmarks you have
 performed in the past, or plan to perform in the future,
 then I hope to answer them in this series of posts.
 
-I propose to use the "measuring the performance improvements of
-`array_based_order_book_side<>` vs `map_based_order_book_side<>` as an
+I propose to use
+*measure the performance improvements of
+`array_based_order_book_side<>` vs `map_based_order_book_side<>`* as an
 example of how to rigorously answer those questions.
 Later it will become evident that this example is too easy, so I will
-also use "measuring the performance of one version of
-`array_based_order_book_side<>` against another version" as an example
-of what to measure.
+also use
+*measure the some small improvement of 
+`array_based_order_book_side<>`* as a further example of how to
+rigorously benchmark and compare code changes.
 As I go along, I will describe the pitfalls that I try to avoid,
 and how I avoid them.
 And finally to report the results in enough detail that readers can
@@ -129,30 +135,37 @@ I have created for this purpose.
 
 ## The Problem of Building an Order Book
 
-In this section I try to give the reader some context about the
-problem domain ([ref](#bad-no-context)),
-explain what specific problem these data structures are trying to
-solve ([ref](#bad-no-problem-description)),
-and try to motivate the need for efficient data structures for this
-problem ([ref](#bad-no-efficiency-not-justified)).
+In this section I will try to address the issues raised in
+[I1](#bad-no-context), [I2](#bad-no-problem-description), and
+[I3](#bad-no-efficiency-not-justified), and give the reader some
+context about the domain where the problems of building a book arise,
+what specifically is this problem, and why is it important to solve
+this problem very efficiently.
 
 If you are familiar with market feeds and order books you may want to
 skip tho the [next section](#detailed-design),
 it will be either boring or irritating to you.
 If you are not familiar, then this is a very rushed overview, there is
 an [earlier post](/2015/08/29/validate-cross-correlation-part-1/) with
-a slightly longer introduction to the topic.
+a slightly longer introduction to the topic, but the content here
+should suffice.
 
-Some market data feeds largely consist of messages that tell you when
-a new order was *added*, *modified*, or *deleted* in the exchange (or
-whatever the source of the feed is, not all are exchanges).
-The messages include a lot of information about the order, but for my
-purpose in this series of posts the important bits are
-the side of the order: is it a order to buy or sell securities;
-the price of the order: what is the maximum (for buy) or minimum (for
-sell) price that the investor placing the order will accept;
-and the quantity: the number of shares (or more generally *units*) the
-investor is willing to transact.
+Market data feeds are network protocols used to describe features of
+interest in an exchange (or more generally a trading venue, but that
+distinction is irrelevant).
+These protocols are often custom to each exchange, though their
+specification is public, and have large differences in the information
+they provide, as well as the actual protocol used.
+Having said that, I have found that many of them can be modeled as a
+stream of messages that tell you whether a order was *added*,
+*modified*, or *deleted* in the exchange.
+The messages include a lot of information about the order, but here we
+will just concern about with the most salient bits, namely:
+the side of the order -- is this an order to buy or sell securities;
+the price of the order -- what is the maximum (for buy) or minimum (for
+sell) price that the investor placing the order will accept,
+and the quantity of the order -- the number of shares (or more
+generally *units*) the investor is willing to trade.
 
 With this stream of messages one can build a full picture of all the
 activity in the exchange, how many orders are active at any point, at
@@ -163,24 +176,24 @@ The process of building this picture of the current state of the
 exchange is called *Building the Book*, and your *Book* is the data
 structure (or collection of data structures) that maintains that
 picture.
-In many cases you only need to keep a summary of the full picture.
-This arises because one of the most common questions your book must be
+One of the most common questions your book must be
 able to answer are: what is the price of the highest buy order active
 right now in a security?  And also: how many total shares are
 available at that best buy price for that security?  And obviously:
 what about the best sell price and the number of shares at that best
 price for that security?
 
-The natural way to solve this problem is keep a tally of how many
+If those are all the questions you are going to ask, and this is often
+the case, you only need to keep a tally of how many
 shares are available to buy at each price level, and how many shares
 are available to sell at each price level.
 The tally must be sorted by price (in opposite orders for buy
-and sells) because when the best price level disappears (all active
+and sells), because when the best price level disappears (all active
 orders at the best price are modified or canceled) you need to quickly
-find the next one.
+find the next best price.
 You must naturally keep a different instance of such tally for each
-security, after you are being asked about the best price for GOOG, not
-for MSFT.
+security, after all you are being asked about the best price for GOOG,
+not for MSFT.
 
 The challenge is that these feeds can have very high throughput
 requirements, it is
@@ -211,10 +224,11 @@ introducing additional lately.
 
 ## Detailed Design
 
-In this section I will try to give a more detailed description of the
+In this section I will try to solve the problems identified in
+([I4](#bad-no-data-structure-description))
+and give a more detailed description of the
 classes involved, so the reader can understand the tradeoffs they make
-and any weaknesses they might have
-([ref](#bad-no-data-structure-description)).
+and any weaknesses they might have.
 If the reader finds this section too detailed they can
 [skip it](#benchmark-design).
 
@@ -222,7 +236,7 @@ If the reader finds this section too detailed they can
 
 In JayBeams, a relatively straightforward implementation of the order
 book tally I described above
-is provided by `map_based_order_book_side<>`
+is provided by `map_based_order_book_side<>` (hereafter `mbobs<>`)
 [[1]](https://github.com/coryan/jaybeams/blob/eabc035fc23db078e7e6b6adbc26c08e762f37b3/jb/itch5/map_based_order_book.hpp#L52).
 It is implemented using a `std::map<>`, indexed by price and
 containing the total quantity available for that price.
@@ -270,9 +284,10 @@ prices in an array, but we can fallback on the `std::map<>`
 implementation for the less common case.
 
 My friend Gabriel used all the previous observations to design and
-implement `array_based_order_book_side<>`.
+implement `array_based_order_book_side<>` (hereafter `abobs<>`).
 The class offers an identical interface to
-`map_based_order_book_side<>`, with `add_order()` and `remove_order()
+`mbobs<>`,
+with `add_order()` and `remove_order()`
 member functions, and with member functions to access the best and
 worst available prices.
 
@@ -289,10 +304,10 @@ All elements in the vector past that index have zero values.
 The vector size is initialized when a class instance is constructed,
 and does not change dynamically.
 
-![A diagram representing the array_based_order_book_side<> template
+![A diagram representing the abobs<> template
  class.
  ](/public/2017-01-04-on-benchmarking-part-1/array_based_order_book_side-basic.svg
- "The array_based_order_book_side<> internal data structures.")
+ "The abobs<> internal data structures.")
 
 The value of `tk_inside` changes when a new order with a better price
 than the current best is received.  Analyzing the complexity of this
@@ -336,12 +351,12 @@ There are also basically three cases:
 
 #### Summary of the Complexity
 
-In short, we expect `array_based_order_book_side<>` to behave as a
+In short, we expect `abobs<>` to behave as a
 *O(1)* data structure for the majority of the messages.
 This expectation is based on receiving very few messages affecting
 prices far away from the inside.
 In those cases the class behaves actually worse than
-`map_based_order_book_side<>`.
+`mbobs<>`.
 
 ## Benchmark Design
 
@@ -388,12 +403,12 @@ controversial.
 
 ## Obtaining Representative Data for the Benchmark
 
-The tricky bit here is that the array-based class was specifically
+The tricky bit here is that the `abobs<>` class was specifically
 designed to take advantage of the distribution characteristics of the
 input data.
 I need to create test data that has this locality property.
 And it must have some kind of goldi-locks medium:
-not so much locality of prices that it unfairly favors the array-based
+not so much locality of prices that it unfairly favors the `abobs<>`
 design, but not so little that it unfairly disadvantages that design
 either.
 
@@ -430,17 +445,12 @@ both learn something.
 That sounds suspiciously close to the scientific method.
 
 
-## Benchmark Setup
+## Next Up
 
-I implemented the
+The next post will include a more detailed description of the
 [benchmark](https://github.com/coryan/jaybeams/blob/eabc035fc23db078e7e6b6adbc26c08e762f37b3/jb/itch5/bm_order_book.cpp),
-described above.
-It is able to test either the `array_based_order_book_side` and
-`map_based_order_book_side` template classes
+to test these classes.
 
-The more detailed description of the benchmark internals and how to
-configure a system to run such benchmarks is the subject of the next
-post.
 
 ## Notes
 
