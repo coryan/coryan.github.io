@@ -13,30 +13,33 @@ date: 2017-01-08 04:00
 > I do.
 
 In my [previous post]({{page.previous.url}}) I discussed a class
-(`array_based_order_book_side<>`)
+(`array_based_order_book_side<>` a/k/a `abobs<>`)
 which serves as a motivation to learn how to create really good
 benchmarks.
 Because testing the class inside a full program introduces too much
 variation in the results,  it is too slow, and it is too cumbersome I
 decided to go with a small purpose-built benchmark program.
-I also decided that the benchmark would generate synthetic inputs for
-the class.  These inputs are really some long sequences of operations
-that the class must process.
+In that post I pointed out ([[I5]][issue 5]) that any good description
+of a benchmark must include how does the benchmark measures time, why
+is that a good approach to measure time, and how does the benchmark
+control for variables that affect the results, such as system load.
+This poist is largely written to address those questions.
 
-In this post I will describe a little framework I built to write
+I will describe a small framework I built to write
 benchmarks for 
 [JayBeams](https://github.com/coryan/jaybeams/).
-Mostly this was born with the frustration of not getting the same
-results when running even the same benchmark twice.
+Mostly this was born with my frustration when not getting the same
+results if one runs the same benchmark twice.
 If I cannot reproduce the results myself, for the same code, on the
-same server, what hope do I have of creating reproducible results?
+same server, what hope do I have of creating reproducible results for
+others?
 I need to get the environment where the benchmarks run under control
 before I have any hope of embarking of a rigorous analysis of them.
 
 It turns out you need to do a lot of fine tuning in the operating
 system to get consistency out of your benchmarks, and you also
 need to select your clock carefully.
-I find this kind of fine tuning interesting in itself, and I am taking
+I find this kind of fine tuning interesting in itself, so I am taking
 the opportunity to talk about it.
 
 Most folks call such small benchmarks a 
@@ -53,10 +56,10 @@ First, you setup the environment necessary to run whatever it is you
 are testing.
 This is similar to how you setup your mocks in a unit test, and in
 fact you may setup mocks for your benchmark too.
-In the case of `array_based_order_book_side<>` one wants to build that
+In the case of our example (`abobs<>`) one wants to build a
 synthetic list of operations before the system starts measuring the
 performance of the class.
-Building that list is expensive, and do certainly you want to include
+Building that list is expensive, and you certainly do not want to include
 it the measurement of the class itself; in general,
 microbenchmarks should not measure or report the time required
 to setup their test environment.
@@ -110,15 +113,13 @@ I want rigorous results, I do not want to join
 
 ## The JayBeams Microbenchmark Framework
 
-Having written a few microbenchmarks in the past, and not wanting to
-write the same things over an over, I wrote a little
+In JayBeams microbenchmark
 [framework](https://github.com/coryan/jaybeams/blob/eabc035fc23db078e7e6b6adbc26c08e762f37b3/jb/testing/microbenchmark.hpp)
-to run all the microbenchmarks in JayBeams.
-You give it a `fixture` template parameter.
+the user just needs to provide a `fixture` template parameter.
 The constructor of this fixture must setup the environment for the
 microbenchmark.
-The `fixture::run` member function runs the test.
-The framework  takes care of the rest:
+The `fixture::run` member function must run the test.
+The framework takes care of the rest:
 it reads the configuration parameters for the
 test from the command line, calls your constructor,
 runs the desired number of warm up and test iterations,
@@ -328,7 +329,7 @@ for each core, each of these processes tries to consume 100% of a core.
 Finally, for all the
 all possible combinations of the configuration parameters and load I
 described above I run the microbenchmark four times.
-I actually used `map_based_order_book_side<>` in these benchmarks, but
+I actually used `mbobs<>` in these benchmarks, but
 the results apply regardless of what you are testing.
 Let's look at the pretty graph:
 
@@ -380,6 +381,13 @@ discussed, labeled *fixed*, or using
 Obviously some of the different in execution time can be attributed to
 the input, but there are noticeable differences even when the input is
 always the same.
+
+Notice that I do not recommend running the benchmarks for the
+`abobs<>` with a fixed input.
+We want the class to work more efficiently for a large class of
+inputs, not simply for the one we happy to measure with.
+We are fixing the input in this post in an effort to better tune our
+operating system.
 
 #### Effect of the System Load and Scheduling Limits
 
@@ -436,26 +444,26 @@ restricted to the same seed for all runs:
 I believe the improvement is quite significant, I will show in a
 future post that this is the difference between having to run a few
 hundred iterations
-of the test vs. close to a million to obtain enough statistical power
-in the microbenchmark.
+of the test vs. tens of thousands of iterations to obtain enough
+statistical power in the microbenchmark.
 
 I should mention that all these pretty graphs and tables are
-compelling, but do not have sufficient statistical to draw strong
-conclusions.
+compelling, but do not have sufficient statistical rigor to draw
+quantitative conclusions.
 I feel comfortable  asserting that changing these system configuration
 parameters has an effect on the consistency of the performance
 results.
 I cannot assert with any confidence what is the size of the effect, or
 whether the results are statistically significant, or to what
 population of tests they apply.
-Those things are possible to do, but require more space than I have
-available right now.
+Those things are possible to do, but distract us from the objective of
+describing benchmarks rigorously.
 
 ### Summary
 
 The system configuration seems to have a very large effect on how
-consistent your benchmark results are.
-I prefer to run microbenchmarks on the `SCHED_FIFO` scheduling class,
+consistent are your benchmark results.
+I recommend you run microbenchmarks on the `SCHED_FIFO` scheduling class,
 at the highest available priority, on a lightly loaded system,
 where the CPU frequency scaling governor has been set to
 `performance`, and where the system has been configured to dedicate up
@@ -540,16 +548,20 @@ intelligent governor in favor of the predictability of our results.
 
 My friend [Gonzalo](https://github.com/gonzus) points out that we
 assume `std::chrono::steady_clock` has good enough resolution,
-we should at least check at runtime and warn if necessary.
-There is no guarantee in C++ as to the resolution of any of the clocks
-really, so the checks will need to be platform specific.
+we should at least check if this is the case at runtime and warn if
+necessary.
+Unfortunately, there is no guarantee in C++ as to the resolution of
+any of the clocks, nor is there an API to expose the expected
+resolution of the clock in the language.
+Unfortunately this means any check on resolution must be platform
+specific.
 On Linux the
 [clock_getres(2)](http://man7.org/linux/man-pages/man2/clock_gettime.2.html) 
 seems promising at first, but it turns out to always return 1ns for
 all the "high-resolution" clocks, regardless of their actual
 resolution.
 I do not have, at the moment, a good idea on how to approach this
-problem.
+problem beyond relying on the documentation of the system.
 
 ## Notes
 
@@ -574,3 +586,5 @@ accompanies this post.
 > good paper.  Same content, just better tone I think.  I beg
 > forgiveness from my readers, I am still trying to find a good style
 > for blogs.
+
+[issue 5]: /2017/01/04/on-benchmarking-part-1/#bad-no-benchmark-description
