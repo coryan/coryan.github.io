@@ -1,8 +1,7 @@
 ---
 layout: post
 title: On Benchmarking, Part 3
-date: 2017-01-14 12:00
-draft: true
+date: 2017-01-15 23:00
 ---
 
 <div style="text-align: right">
@@ -18,7 +17,7 @@ In God we trust; all others must bring data.<br>
 > [this bug](https://github.com/coryan/coryan.github.io/issues/1) when
 > I do.
 
-In our [previous post]({{page.previous.url}}) we discussed the
+In my [previous post]({{page.previous.url}}) I discussed the
 JayBeams microbenchmark framework and how to configure a system to
 produce consistent results when benchmarking a CPU-bound component
 like `array_based_order_book_side<>` (a/k/a `abobs<>`).
@@ -57,7 +56,7 @@ nanosecond, and those are pretty small already.
 
 The question of how big a change needs to be to be "scientifically
 interesting" is, I think, one that depends on the opinion and
-objectives of the researching.
+objectives of the researcher.
 In the example I have been using, I think we are only interested in
 changes that improve the processing of add / modify / delete messages
 by at least a few machine instructions per message.
@@ -111,15 +110,15 @@ effort analyzing it?
 
 I like data-driven decision making, and I think most software
 engineers prefer it too.
-Having the necessary data also short-circuits fruitless debate, I am
-certain the reader has witness or participated in a debate between
-software engineers argue about two designs for a system as vehemently
-as if they were using `vi` vs. `emacs`.
-What I like about a data-driven approach is that one must get specific
-about things like "better performance",
+I think the reader has likely witnessed or participated in debates
+between software engineers where the merits of two designs for a
+system are bandied back and forth (think: `vi` vs. `emacs`),
+having data can stop such debates before they start.
+Another thing I like about a data-driven approach is that one must get
+specific about things like "better performance",
 and very specific about "these are the assumptions about the system".
-Defining such things clearly also helps in having more productive
-conversations within a team.
+With clear definitions such questions the conversations inside a team
+are also more productive.
 
 ### What do we do if have no data?
 
@@ -171,18 +170,16 @@ Essentially we have defined the variable that we are going to measure,
 analogous to deciding exactly how are are going to measure the weight
 of a person.
 But what is the group of persons we are going to measure this over?
-All humans?  All adult males?  All the people that ride the subway in
-New York?
+All humans?  Only the people that ride the subway in New York?
+Likewise, we have not defined which inputs are acceptable, that is we
+need to define the *population* of interest.
 
-In our case I believe we need to pick three things:
+In our case I believe we need to pick two things:
 
 1. most obviously, the population of sequences S, we know the
    `abobs<>` class is slower than `mbobs<>` for some of them.
 2. The template parameter T, there are a possibly infinite number of
    choices for it, but only two are really used.  How often each?
-3. Under what conditions do we expect to run the program?  This may
-   not change which of the two classes under consideration is faster,
-   but it changes how difficult it is to make the decision.
 
 First, we recall our
 [measurements](https://github.com/coryan/jaybeams/issues/30)
@@ -190,9 +187,9 @@ of event depth, the main result of which is that the number of price
 levels between the inside and operation changing the book has these
 sample percentiles:
 
-| NSamples | min | p25 | p50 | p75 | p90 | p99 | p99.9 | max |
-| --------:| ---:| ---:| ---:| ---:| ---:| ---:| -----:| ---:|
-| 489064030 | 0 | 0 | 1 | 6 | 14 | 203 | 2135 | 20009799 |
+| min | p25 | p50 | p75 | p90 | p99 | p99.9 | max |
+| ---:| ---:| ---:| ---:| ---:| ---:| -----:| ---:|
+| 0 | 0 | 1 | 6 | 14 | 203 | 2135 | 20009799 |
 
 In fact, we designed `abobs<>` to take advantage
 of this type of distribution,
@@ -209,16 +206,20 @@ expect that about half of the sequences are executed against the buy
 side, and the other half against the sell side.
 Let's say exactly half to satisfy the lawyers in the room.
 
-And finally, we expect `array_based_order_book_side<>` to be used as
-part of a system that runs on dedicated servers, or at
-least servers with enough dedicated resources to the application that
-it is effectively isolated from the rest.
-Likewise, since the server is dedicated to this application and its
-performance is often critical to the business, we expect
-the system administrator to configure the system to maximize the
-predictability of the system operation.
+I have not said much about the operating conditions of the program:
+does a run of the program on the real-time class under no load counts
+as a different sample than the program running on the default
+scheduling class with high load?
+I think that depends on what you are trying to measure.
+If you were trying to measure how resilient is your code against
+scheduling noise that would be a fine definition of the population.
+I am interested on the narrower problem of how does the code change
+improve the performance of processing a stream of add / modify /
+delete messages.
+For that purpose the operating system scheduling effects is noise,
+I want to minimize that noise, not include it in the analysis.
 
-Therefore we think the following is a more realistic statement about
+Therefore I think the following is a more realistic statement about
 the population of measurements:
 
 > **Population Definition:** The population under consideration is
@@ -226,19 +227,27 @@ the population of measurements:
 > p99 percentile of event depth is within $$[2115,2155]$$.
 > The population must have 50% of its runs for buy order books, and
 > 50% are for sell order books.
-> The program executing the benchmark runs in the real-time scheduling
-> class, at the maximum available priority, with no other sources of
-> load in the server, with the `performance` CPU frequency scaling
-> governor (if applicable), and with no CPU reserved for non-real-time
-> scheduling tasks.
 
-Notice that this means the population includes sequences of all
-different lengths.  At this point we realize we have made a mistake in
-the design of our benchmarks.
+Ooops, I have made a mistake in the design of the benchmarks.
 The benchmark reuses the same sequence S for all the iterations,
-we are going to need random sampling on the population, which makes it
+I am going to need random sampling on the population, which makes it
 desirable for the benchmark to run different iterations with different
 sequences.
+I think this is one of the advantages of writing down the population
+precisely, you realize the mistakes and implicit assumptions you are
+making in the benchmark design, and can correct them.
+
+Also, the benchmark tries to create an input that matches the
+distribution, but no attempt is made to verify it matches the
+restrictions we placed on the input.  We need to correct for that.
+
+Notice that this also means the population includes sequences of all
+different lengths, and the benchmark uses a single length in all the
+iterations.
+I think eventually we will need a linear model that describes how the
+performance varies with the input size.
+That is a more complicated set of statistical tests to run, and we
+will need to build to it.
 
 ## Next up
 
