@@ -53,7 +53,7 @@ measurements of one small program:
 ![Empirical Distribution Density for a Microbenchmark.
 High peak at around 5,000, another peak at around 15,000, tail goes to
 60,000.
-](/public/2017-01-14-on-benchmarking-part-3/empirical-density-uncontrolled.svg
+](/public/2017-02-01-falsehoods-programmers-believe-about-benchmarks/empirical-density-uncontrolled.svg
  "Empirical Distribution of Microbenchmark Results when System
  Configuration is not Controlled.")
 
