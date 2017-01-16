@@ -5,7 +5,7 @@ date: 2017-01-16 01:00
 draft: true
 ---
 
-{% assign ghsha = "f3a3907485c6834272c5c6e0369510cfd71c5d90" %}
+{% assign ghsha = "50b03a99fcb907aa5589692c2cf47b01dae21b8e" %}
 {% capture ghver %}https://github.com/coryan/jaybeams/blob/{{ghsha}}{% endcapture %}
 
 > This is a long series of posts where I try to teach myself how to
