@@ -6,9 +6,21 @@ require(DescTools)
 require(MASS)
 require(fitdistrplus)
 
-## Just load the data...
+## Get the command line arguments ...
+args <- commandArgs(trailingOnly=TRUE)
+
+## ... by default load the data from the GitHub pages site ...
 data.filename <- 'http://coryan.github.io/public/2017/01/16/on-benchmarking-part4/data.csv'
-data <- read.csv(file=data.filename, header=FALSE, comment.char='#', col.names=c('book_type', 'nanoseconds'))
+if (length(args) > 0) {
+    ## ... but allow the user to override in the command-line, the
+    ## user is typically running with new data ...
+    data.filename <- args[1]
+}
+
+## ... then just load the data...
+data <- read.csv(
+    file=data.filename, header=FALSE, comment.char='#',
+    col.names=c('book_type', 'nanoseconds'))
 
 ## ... I prefer microseconds because they are easier to think about ...
 data$microseconds <- data$nanoseconds / 1000.0
@@ -36,6 +48,7 @@ plot.descdist <- function(data, bktype) {
     descdist(d$microseconds, boot=1000)
     mtext(bktype)
     dev.off()
+    descdist(d$microseconds, boot=1000)
     rm(d)
 }
 
@@ -52,6 +65,7 @@ sd.estimator <- function(D,i) {
 }
 
 b.array <- boot(data=subset(data, book_type == 'array'), R=10000, statistic=sd.estimator)
+plot(b.array)
 svg(filename=paste0("bootstrap.array.sd.svg"),
     width=save.width, height=save.height)
 plot(b.array)
@@ -64,6 +78,7 @@ dev.off()
 ci.array <- boot.ci(b.array, type=c('perc', 'norm', 'basic'))
 
 b.map <- boot(data=subset(data, book_type == 'map'), R=10000, statistic=sd.estimator)
+plot(b.map)
 svg(filename=paste0("bootstrap.map.sd.svg"),
     width=save.width, height=save.height)
 plot(b.map)
@@ -127,9 +142,21 @@ required.nsamples <-
                    required.power$n / 1000)
 required.nsamples
 
+##
 ## Appendix: Goodness of Fit
+##
 a.data <- subset(data, book_type == 'array')
 m.data <- subset(data, book_type == 'map')
+
+## Let's make sure the Map data is not really uniform ...
+m.unif.fit <- fitdist(m.data$microseconds, distr="unif")
+plot(m.unif.fit)
+svg(filename="map.fit.unif.svg", height=save.height, width=save.width)
+plot(m.unif.fit)
+dev.off()
+png(filename="map.fit.unif.png", height=png.h, png.w)
+plot(m.unif.fit)
+dev.off()
 
 ## Both are "close" to the line for Gamma, let's try to fit them:
 m.gamma.fit <- fitdist(m.data$microseconds, distr="gamma")
@@ -150,6 +177,7 @@ png(filename="array.fit.gamma.png", height=png.h, png.w)
 plot(a.gamma.fit)
 dev.off()
 
+a.gamma.ks <- ks.test(x=a.data$microseconds, y="pgamma", a.gamma.fit$estimate)
 
 ## The Array data almost fits lognormal, let's try it analytically:
 a.fit <- fitdist(a.data$microseconds, distr="lnorm")
@@ -220,8 +248,19 @@ a.beta.ks
 
 ## Try to fit the Array and Map based data to the Weibull
 ## distribution:
-a.weibull.fit <- fitdist(
-    a.data$seconds, distr="weibull")
+m.weibull.fit <- fitdist(m.data$microseconds, distr="weibull")
+plot(m.weibull.fit)
+svg(filename="map.fit.weibull.svg", height=save.height, width=save.width)
+plot(m.weibull.fit)
+dev.off()
+png(filename="map.fit.weibull.png", height=png.h, width=png.w)
+plot(m.weibull.fit)
+dev.off()
+
+m.weibull.ks <- ks.test(x=m.data$seconds, y="pweibull", m.weibull.fit$estimate)
+m.weibull.ks
+
+a.weibull.fit <- fitdist(a.data$microseconds, distr="weibull")
 plot(a.weibull.fit)
 svg(filename="array.fit.weibull.svg", height=save.height, width=save.width)
 plot(a.weibull.fit)
@@ -233,15 +272,4 @@ dev.off()
 a.weibull.ks <- ks.test(x=a.data$seconds, y="pweibull", a.weibull.fit$estimate)
 a.weibull.ks
 
-m.weibull.fit <- fitdist(
-    m.data$seconds, distr="weibull")
-plot(m.weibull.fit)
-svg(filename="map.fit.weibull.svg", height=save.height, width=save.width)
-plot(m.weibull.fit)
-dev.off()
-png(filename="map.fit.weibull.png", height=png.h, width=png.w)
-plot(m.weibull.fit)
-dev.off()
-
-m.weibull.ks <- ks.test(x=m.data$seconds, y="pweibull", m.weibull.fit$estimate)
-m.weibull.ks
+q(save="no")
