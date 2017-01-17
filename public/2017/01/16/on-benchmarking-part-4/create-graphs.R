@@ -23,6 +23,8 @@ ggplot(data=data, aes(x=microseconds, color=book_type)) + geom_density()
 golden.ratio <- (1+sqrt(5))/2
 save.width <- 8.0
 save.height <- save.width / golden.ratio
+png.w <- 960
+png.h <- round(png.w / golden.ratio)
 
 ggsave(width=save.width, height=save.height, filename="explore.density.svg")
 ggsave(width=save.width, height=save.height, filename="explore.density.png")
@@ -31,7 +33,7 @@ plot.descdist <- function(data, bktype) {
     svg(filename=paste0("explore.", bktype, ".descdist.svg"),
         width=save.width, height=save.height)
     d <- subset(data, book_type == bktype)
-    descdist(d$microseconds)
+    descdist(d$microseconds, boot=1000)
     mtext(bktype)
     dev.off()
     rm(d)
@@ -55,11 +57,19 @@ svg(filename=paste0("bootstrap.array.sd.svg"),
 plot(b.array)
 mtext("Array Based Order Book")
 dev.off()
+png(filename=paste0("bootstrap.array.sd.png"), width=png.w, height=png.h)
+plot(b.array)
+mtext("Array Based Order Book")
+dev.off()
 ci.array <- boot.ci(b.array, type=c('perc', 'norm', 'basic'))
 
 b.map <- boot(data=subset(data, book_type == 'map'), R=10000, statistic=sd.estimator)
 svg(filename=paste0("bootstrap.map.sd.svg"),
     width=save.width, height=save.height)
+plot(b.map)
+mtext("Map Based Order Book")
+dev.off()
+png(filename=paste0("bootstrap.map.sd.png"), width=png.w, height=png.h)
 plot(b.map)
 mtext("Map Based Order Book")
 dev.off()
@@ -118,12 +128,36 @@ required.nsamples <-
 required.nsamples
 
 ## Appendix: Goodness of Fit
+a.data <- subset(data, book_type == 'array')
+m.data <- subset(data, book_type == 'map')
+
+## Both are "close" to the line for Gamma, let's try to fit them:
+m.gamma.fit <- fitdist(m.data$microseconds, distr="gamma")
+plot(m.gamma.fit)
+svg(filename="map.fit.gamma.svg", height=save.height, width=save.width)
+plot(m.gamma.fit)
+dev.off()
+png(filename="map.fit.gamma.png", height=png.h, png.w)
+plot(m.gamma.fit)
+dev.off()
+
+a.gamma.fit <- fitdist(a.data$microseconds, distr="gamma")
+plot(a.gamma.fit)
+svg(filename="array.fit.gamma.svg", height=save.height, width=save.width)
+plot(a.gamma.fit)
+dev.off()
+png(filename="array.fit.gamma.png", height=png.h, png.w)
+plot(a.gamma.fit)
+dev.off()
+
 
 ## The Array data almost fits lognormal, let's try it analytically:
-a.data <- subset(data, book_type == 'array')
 a.fit <- fitdist(a.data$microseconds, distr="lnorm")
 plot(a.fit)
 svg(filename="array.fit.lognormal.svg", height=save.height, width=save.width)
+plot(a.fit)
+dev.off()
+png(filename="array.fit.lognormal.png", height=png.h, width=png.w)
 plot(a.fit)
 dev.off()
 
@@ -135,7 +169,6 @@ a.ks <- ks.test(x=a.data$microseconds, y="plnorm", a.fit$estimate)
 a.ks
 
 ## Try to fit Beta to Array and Map
-m.data <- subset(data, book_type == 'map')
 m.data$seconds <- m.data$microseconds / 1000000
 
 ## We can estimate the good initial values for the parameters using
@@ -161,6 +194,10 @@ plot(m.beta.fit)
 svg(filename="map.fit.beta.svg", height=save.height, width=save.width)
 plot(m.beta.fit)
 dev.off()
+png(filename="map.fit.beta.png", height=png.h, png.w)
+plot(m.beta.fit)
+dev.off()
+
 m.beta.ks <- ks.test(x=m.data$seconds, y="beta", m.beta.fit$estimate)
 m.beta.ks
 
@@ -173,5 +210,38 @@ svg(filename="array.fit.beta.svg", height=save.height, width=save.width)
 plot(a.beta.fit)
 dev.off()
 
+png(filename="array.fit.beta.png", height=png.h, width=png.w)
+plot(a.beta.fit)
+dev.off()
+
 a.beta.ks <- ks.test(x=a.data$seconds, y="beta", a.beta.fit$estimate)
 a.beta.ks
+
+
+## Try to fit the Array and Map based data to the Weibull
+## distribution:
+a.weibull.fit <- fitdist(
+    a.data$seconds, distr="weibull")
+plot(a.weibull.fit)
+svg(filename="array.fit.weibull.svg", height=save.height, width=save.width)
+plot(a.weibull.fit)
+dev.off()
+png(filename="array.fit.weibull.png", height=png.h, width=png.w)
+plot(a.weibull.fit)
+dev.off()
+
+a.weibull.ks <- ks.test(x=a.data$seconds, y="pweibull", a.weibull.fit$estimate)
+a.weibull.ks
+
+m.weibull.fit <- fitdist(
+    m.data$seconds, distr="weibull")
+plot(m.weibull.fit)
+svg(filename="map.fit.weibull.svg", height=save.height, width=save.width)
+plot(m.weibull.fit)
+dev.off()
+png(filename="map.fit.weibull.png", height=png.h, width=png.w)
+plot(m.weibull.fit)
+dev.off()
+
+m.weibull.ks <- ks.test(x=m.data$seconds, y="pweibull", m.weibull.fit$estimate)
+m.weibull.ks
