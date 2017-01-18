@@ -244,8 +244,10 @@ population standard deviation.  But how big is the error?
 In the [Estimating Standard
 Deviation](#appendix-estimate-standard-deviation) appendix we use
 bootstrapping to compute confidence intervals for the standard
-deviation.
-The appendix to see how the following table was derived:
+deviation, if you are interested in the procedure check it out in the
+appendix.
+The short version is that we get 95% confidence intervals through
+several methods, the methods agree with each other and the results are:
 
 | Book Type | StdDef Low Estimate | StdDev High Estimate |
 | --------- | ---------------:| ---------------:|
@@ -253,7 +255,8 @@ The appendix to see how the following table was derived:
 |       map |  1266           | 1283           |
 
 Because the sample size gets higher with larger standard deviations we
-use the upper values for the confidence intervals.
+use the upper values for the confidence intervals.  So we are going
+with $$1283$$ as our estimate of standard deviation.
 
 ### Side Note: Equal Variance
 
@@ -400,12 +403,12 @@ as [PCG](http://www.pcg-random.org/), or
 I have made no attempts to test the statistical properties of the
 Mersenne-Twister generator as initialized from my code.
 This seems redundant, the previous results show that it will fail some
-tests, but it is the best family from those available in C++11.
+tests.  Regardless, it is the best family from those available in
+C++11, so we use it for the time being.
 
 Naturally we should try to characterize the space of possible inputs
 better, and determine if the procedure generating synthetic inputs is
 unbiased in this space.
-
 
 ## Appendix Goodness of Fit
 
@@ -415,7 +418,7 @@ were good fits or not.
 We reproduce here the analysis for the few distributions that are
 harder to discount just based on the Culley and Frey graphs.
 
-### Is Map Really Uniform?
+### Is the Uniform Distribution a good fit for the Map-based data?
 
 Not really, the estimated density does not look uniform at all, just
 the kurtosis and skeweness happen to match the uniform distribution.
@@ -539,15 +542,22 @@ we simply take advantage of it to produce the estimates.
 We reproduce here the bootstrap histograms, and
 [Q-Q plots](https://en.wikipedia.org/wiki/Q%E2%80%93Q_plot),
 they show the standard deviation estimator largely follow
-a normal distribution, and one can use the more economical procedures
-to estimate the confidence interval:
+a normal distribution, and one can use the more economical methods
+to estimate the confidence interval (rounded down for min, rounded up
+for max):
 
 | Book Type | Normal Method | Basic Method | Percentile Method |
 | --------- | ------------- | ------------ | ----------------- |
-| Map       | (1160, 1185)  |  (1160, 1185)|   (1159, 1184) |
-| Array     | (851, 873)  |  (851, 873)|   (851, 873) |
+| Map       | (1266, 1283)  |  (1266, 1283)|   (1266, 1283) |
+| Array     | (664.3, 684.6)  |  (664.4, 684.4)|   (664.6, 684.6) |
 
-Therefore, we use **1185** as our estimate of the standard deviation.
+Notice that the different methods largely agree with each other, which
+is a good sign that the estimates are good.
+We take the maximum of all the estimates, because we are using it for
+power analysis where the highest value is more conservative.
+After rounding up the maximum, we obtain $$1284$$ as our estimate of
+the standard deviation for the purposes of power analysis.
+
 Incidentally, this procedure confirmed that the number of samples used
 in the exploratory analysis was adequate.
 If we had taken an insufficient number of samples the estimated
