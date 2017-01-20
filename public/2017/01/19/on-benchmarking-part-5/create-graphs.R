@@ -131,6 +131,13 @@ require(boot)
 mixed.boot <- boot(data=mixed.test, R=10000,
                    statistic=function(d, i) sd(d[i]))
 plot(mixed.boot)
+svg(filename="mixed.boot.svg", width=save.width, height=save.height)
+plot(mixed.boot)
+dev.off()
+png(filename="mixed.boot.png", width=png.w, height=png.h)
+plot(mixed.boot)
+dev.off()
+
 mixed.ci <- boot.ci(mixed.boot, type=c('perc', 'norm', 'basic'))
 print(mixed.ci)
 mixed.sd <- ceiling(max(mixed.ci$normal[[3]], mixed.ci$basic[[4]],
@@ -142,6 +149,7 @@ print(mixed.pw)
 nsamples <- ceiling(mixed.pw$n / 1000) * 1000
 print(nsamples)
 
+## ... 
 mixed.s1 <- 1000 + rmixed(nsamples)
 mixed.s2 <- 1050 + rmixed(nsamples)
 

@@ -319,6 +319,44 @@ distribution from our benchmarks, but at least not trivial.
 I would like to know how many samples to take to measure an effect of
 $$50$$, which requires computing the standard deviation of the mixed
 distribution.
+I use bootstrapping to obtain an estimate:
+
+``` r
+require(boot)
+mixed.boot <- boot(data=mixed.test, R=10000,
+                   statistic=function(d, i) sd(d[i]))
+plot(mixed.boot)
+```
+
+![](/public/{{page.id}}/mixed.boot.png
+"Estimated Standard Deviation for Mixed Distribution via Bootstrapping")
+
+That seems like a good bootstrap graph, so we can proceed to get the
+bootstrap value:
+
+``` r
+mixed.ci <- boot.ci(mixed.boot, type=c('perc', 'norm', 'basic'))
+print(mixed.ci)
+BOOTSTRAP CONFIDENCE INTERVAL CALCULATIONS
+Based on 10000 bootstrap replicates
+
+CALL : 
+boot.ci(boot.out = mixed.boot, type = c("perc", "norm", "basic"))
+
+Intervals : 
+Level      Normal              Basic              Percentile     
+95%   (1858, 1911 )   (1858, 1911 )   (1858, 1912 )  
+Calculations and Intervals on Original Scale
+```
+That seems pretty consistent too, so I can take the worst case as my
+estimate:
+
+``` r
+mixed.sd <- ceiling(max(mixed.ci$normal[[3]], mixed.ci$basic[[4]],
+                        mixed.ci$percent[[4]]))
+print(mixed.sd)
+[1] 1912
+```
 
 
 ## Notes
