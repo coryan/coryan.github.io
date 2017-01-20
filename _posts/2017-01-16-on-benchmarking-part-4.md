@@ -2,7 +2,6 @@
 layout: post
 title: On Benchmarking, Part 4
 date: 2017-01-16 01:00
-draft: true
 ---
 
 {% assign ghsha = "f90425b2c364d0c8445d50a445bda30c7c6265d3" %}
