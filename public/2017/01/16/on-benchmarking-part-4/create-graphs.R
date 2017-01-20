@@ -10,7 +10,7 @@ require(fitdistrplus)
 args <- commandArgs(trailingOnly=TRUE)
 
 ## ... by default load the data from the GitHub pages site ...
-data.filename <- 'http://coryan.github.io/public/2017/01/16/on-benchmarking-part4/data.csv'
+data.filename <- 'http://coryan.github.io/public/2017/01/16/on-benchmarking-part-4/data.csv'
 if (length(args) > 0) {
     ## ... but allow the user to override in the command-line, the
     ## user is typically running with new data ...
