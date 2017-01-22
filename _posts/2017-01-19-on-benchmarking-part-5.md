@@ -1,8 +1,9 @@
 ---
 layout: post
-title: On Benchmarking, Part 5
-date: 2017-01-19 01:00
+title: 'On Benchmarking, Part 5'
+date: '2017-01-19 01:00'
 draft: true
+published: false
 ---
 
 {% assign ghsha = "50b03a99fcb907aa5589692c2cf47b01dae21b8e" %}
@@ -50,10 +51,10 @@ distribution.
 I picked Lognormal because, if you squint really hard, it looks
 vaguely like latency data:
 
-{% highlight r %}
+``` r
 lnorm.s1 <- rlnorm(50000, 5, 0.2)
 qplot(x=lnorm.s1, geom="density", color=factor("s1"))
-{% endhighlight %}
+```
 
 ![](/public/{{page.id}}/lnorm.s1.density.svg
 "Estimated Density of Randomly Selected Samples from a Lognormal Distribution")
@@ -66,12 +67,10 @@ If you find the language of statistical testing somewhat convoluted
 (e.g. "fail to reject" instead of simple "accept"), you are not alone,
 I think that is the sad cost of rigor.
 
-{% highlight r %}
+``` r
 s1.w <- wilcox.test(x=lnorm.s1, lnorm.s1, conf.int=TRUE)
 print(s1.w)
-{% endhighlight %}
 
-{% highlight r %}
 	Wilcoxon rank sum test with continuity correction
 
 data:  lnorm.s1 and lnorm.s1
@@ -82,7 +81,7 @@ alternative hypothesis: true location shift is not equal to 0
 sample estimates:
 difference in location 
          -6.243272e-08 
-{% endhighlight %}
+```
 
 That seems like a reasonable answer, the p-value is about as high as
 it can get, and the estimate of the location parameter difference is
@@ -94,24 +93,22 @@ I next try with a second sample from the same distribution, the test
 should fail to reject the null again, and the estimate should be close
 to 0:
 
-{% highlight r %}
+``` r
 lnorm.s2 <- rlnorm(50000, 5, 0.2)
 require(reshape2)
 df <- melt(data.frame(s1=lnorm.s1, s2=lnorm.s2))
 colnames(df) <- c('sample', 'value')
 ggplot(data=df, aes(x=value, color=sample)) + geom_density()
-{% endhighlight %}
+```
 
 ![](/public/{{page.id}}/lnorm.s1.s2.density.svg
 "Estimated Density of Two Randomly Selected Samples from a Lognormal Distribution")
 
-{% highlight r %}
+``` r
 w.s1.s2 <- wilcox.test(x=lnorm.s1, y=lnorm.s2, conf.int=TRUE)
 print(w.s1.s2)
-{% endhighlight %}
 
-{% highlight r %}
-	Wilcoxon rank sum test with continuity correction
+Wilcoxon rank sum test with continuity correction
 
 data:  lnorm.s1 and lnorm.s2
 W = 1252400000, p-value = 0.5975
@@ -121,7 +118,7 @@ alternative hypothesis: true location shift is not equal to 0
 sample estimates:
 difference in location 
             0.09992599 
-{% endhighlight %}
+```
 
 That seems like a good answer too.  Conventionally the one fails to
 reject the null if the p-value is above 0.01 or 0.05.
@@ -141,19 +138,23 @@ What I want to do is try it with different distributions, let's start
 with something super simple: two distributions that are slightly
 shifted from each other:
 
-{% highlight r %}
+``` r
 lnorm.s3 <- 4000.0 + rlnorm(50000, 5, 0.2)
 lnorm.s4 <- 4000.1 + rlnorm(50000, 5, 0.2)
 df <- melt(data.frame(s3=lnorm.s3, s4=lnorm.s4))
 colnames(df) <- c('sample', 'value')
 ggplot(data=df, aes(x=value, color=sample)) + geom_density()
-ggsave('lnorm.s3.s4.density.svg', width=save.width, height=save.height)
-ggsave('lnorm.s3.s4.density.png', width=save.width, height=save.height)
+```
+
+![](/public/{{page.id}}/lnorm.s3.s4.density.svg
+"Estimated Density of Two Randomly Selected Samples from a Lognormal Distribution")
+
+We can use the Mann-Whitney test to compare them:
+
+``` r
 w.s3.s4 <- wilcox.test(x=lnorm.s3, y=lnorm.s4, conf.int=TRUE)
 print(w.s3.s4)
-{% endhighlight %}
 
-{% highlight r %}
 	Wilcoxon rank sum test with continuity correction
 
 data:  lnorm.s3 and lnorm.s4
@@ -164,12 +165,13 @@ alternative hypothesis: true location shift is not equal to 0
 sample estimates:
 difference in location 
            -0.03069523 
-{% endhighlight %}
+```
 
-![](/public/{{page.id}}/lnorm.s3.s4.density.svg
-"Estimated Density of Two Randomly Selected Samples from a Lognormal Distribution")
 
-Hmmm... Ideally we would have rejected the null in this case, what is
+Hmmm... Ideally we would have rejected the null in this case,
+but we cannot (p-value is higher than my typical 0.01 significance
+level).
+What is
 going on?  And why does the 95% confidence interval for the estimate
 includes 0?  We know the difference is 0.1.
 I "forgot" to do power analysis again.  This test is not sufficiently
@@ -211,9 +213,13 @@ print(power.t.test(n=50000, delta=NULL, sd=sd(lnorm.s3),
 NOTE: n is number in *each* group
 ```
 
+Seems like we need to either pick larger effects, or
+larger sample sizes.
+
 ### A Sufficiently Powered Test
 
-Okay, something higher than 0.54 would work, let's use 1.0 because
+I am going to pick larger effects, 
+anything higher than 0.54 would work, let's use 1.0 because
 that is easy to type:
 
 ``` r
@@ -222,8 +228,12 @@ lnorm.s6 <- 4001 + rlnorm(50000, 5, 0.2)
 df <- melt(data.frame(s5=lnorm.s5, s6=lnorm.s6))
 colnames(df) <- c('sample', 'value')
 ggplot(data=df, aes(x=value, color=sample)) + geom_density()
-ggsave('lnorm.s5.s6.density.svg', width=save.width, height=save.height)
-ggsave('lnorm.s5.s6.density.png', width=save.width, height=save.height)
+```
+
+![](/public/{{page.id}}/lnorm.s5.s6.density.svg
+"Estimated Density of Two Randomly Selected Samples from a Lognormal Distribution")
+
+``` r
 s5.s6.w <- wilcox.test(x=lnorm.s5, y=lnorm.s6, conf.int=TRUE)
 print(s5.s6.w)
 
@@ -239,8 +249,6 @@ difference in location
              -1.249286 
 ```
 
-![](/public/{{page.id}}/lnorm.s5.s6.density.svg
-"Estimated Density of Two Randomly Selected Samples from a Lognormal Distribution")
 
 It is working again!  Now we can reject the null hypothesis at the
 0.01 level (p-value is much smaller than that).
@@ -262,8 +270,12 @@ lnorm.s8 <- 4005 + rlnorm(50000, 5, 0.2)
 df <- melt(data.frame(s7=lnorm.s7, s8=lnorm.s8))
 colnames(df) <- c('sample', 'value')
 ggplot(data=df, aes(x=value, color=sample)) + geom_density()
-ggsave('lnorm.s7.s8.density.svg', width=save.width, height=save.height)
-ggsave('lnorm.s7.s8.density.png', width=save.width, height=save.height)
+```
+
+![](/public/{{page.id}}/lnorm.s7.s8.density.svg
+"Estimated Density of Two Randomly Selected Samples from a Lognormal Distribution")
+
+```
 s7.s8.w <- wilcox.test(x=lnorm.s7, y=lnorm.s8, conf.int=TRUE)
 print(s7.s8.w)
 
@@ -278,9 +290,6 @@ sample estimates:
 difference in location 
              -4.738913 
 ```
-
-![](/public/{{page.id}}/lnorm.s7.s8.density.svg
-"Estimated Density of Two Randomly Selected Samples from a Lognormal Distribution")
 
 I think the lesson here is that for better estimates of the parameter
 you need to have a sample count much higher than the minimum required
@@ -305,8 +314,11 @@ rmixed <- function(n, shape=0.2, scale=2000) {
     ## order in the vector
     return(sample(v))
 }
+```
 
-## Let's first get some samples from this distribution ...
+And then we select a few samples using that distribution:
+
+``` r
 mixed.test <- 1000 + rmixed(20000)
 qplot(x=mixed.test, color=factor("mixed.test"), geom="density")
 ```
@@ -348,6 +360,7 @@ Level      Normal              Basic              Percentile
 95%   (1858, 1911 )   (1858, 1911 )   (1858, 1912 )  
 Calculations and Intervals on Original Scale
 ```
+
 That seems pretty consistent too, so I can take the worst case as my
 estimate:
 
@@ -441,9 +454,6 @@ median(mixed.s1) - median(mixed.s2)
 Those are not too bad as estimates either.
 I guess I could just provide the easy answer: because you do not get a
 p-value that way!
-
-
-
 
 ## Notes
 
