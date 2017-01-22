@@ -126,7 +126,8 @@ qplot(x=mixed.test, color=factor("mixed.test"), geom="density")
 ggsave('mixed.test.density.svg', width=save.width, height=save.height)
 ggsave('mixed.test.density.png', width=save.width, height=save.height)
 
-## ... and use that to estimate the standard deviation ...
+## ... and use that sample to estimate the standard deviation via
+## bootstrapping ...
 require(boot)
 mixed.boot <- boot(data=mixed.test, R=10000,
                    statistic=function(d, i) sd(d[i]))
@@ -138,18 +139,23 @@ png(filename="mixed.boot.png", width=png.w, height=png.h)
 plot(mixed.boot)
 dev.off()
 
+## ... the plots look Okay, so we compute the confidence intervals ...
 mixed.ci <- boot.ci(mixed.boot, type=c('perc', 'norm', 'basic'))
 print(mixed.ci)
+## ... and pick the worst case for the estimate ...
 mixed.sd <- ceiling(max(mixed.ci$normal[[3]], mixed.ci$basic[[4]],
                         mixed.ci$percent[[4]]))
 print(mixed.sd)
 
+## ... with the confidence interval at hand we compute the number of
+## samples required to achieve the desired power and significance
+## level ...
 mixed.pw <- power.t.test(delta=50, sd=mixed.sd, sig.level=0.01, power=0.95)
 print(mixed.pw)
-nsamples <- ceiling(mixed.pw$n / 1000) * 1000
+nsamples <- ceiling(1.15 * mixed.pw$n / 1000) * 1000
 print(nsamples)
 
-## ... 
+## ... create two samples with the mixed distribution ...
 mixed.s1 <- 1000 + rmixed(nsamples)
 mixed.s2 <- 1050 + rmixed(nsamples)
 
@@ -158,20 +164,57 @@ colnames(df) <- c('sample', 'value')
 ggplot(data=df, aes(x=value, color=sample)) + geom_density()
 ggsave('mixed.s1.s2.svg', width=save.width, height=save.height)
 ggsave('mixed.s1.s2.png', width=save.width, height=save.height)
+
+## ... we can then compute the Mann-Whitney test ...
+
 mixed.w <- wilcox.test(x=mixed.s1, y=mixed.s2, conf.int=TRUE)
 print(mixed.w)
 
+## ... that might seem overly complicated, why not the difference of
+## means or medians ...
+mean(mixed.s1) - mean(mixed.s2)
+median(mixed.s1) - median(mixed.s2)
+
+
+
 ## What happens if we double the number of samples?
-mixed.s3 <- 1000 + rmixed(2 * nsamples)
-mixed.s4 <- 1050 + rmixed(2 * nsamples)
+mixed.s3 <- 1000 + rmixed(nsamples)
+mixed.s4 <-  950 + rmixed(nsamples, scale=1500, shape=0.15)
 
 df <- melt(data.frame(s3=mixed.s3, s4=mixed.s4))
 colnames(df) <- c('sample', 'value')
 ggplot(data=df, aes(x=value, color=sample)) + geom_density()
 ggsave('mixed.s3.s4.svg', width=save.width, height=save.height)
 ggsave('mixed.s3.s4.png', width=save.width, height=save.height)
+
+require(DescTools)
+df.s3.s4 <- df
+median.s3.s4 <- aggregate(value ~ sample, data=df.s3.s4, FUN=median)
+mean.s3.s4 <- aggregate(value ~ sample, data=df.s3.s4, FUN=mean)
+hl.s3.s4 <- aggregate(value ~ sample, data=df.s3.s4, FUN=HodgesLehmann)
+
+ggplot(data=df.s3.s4, aes(x=value, color=sample)) + geom_density() +
+    theme(legend.position="bottom") +
+    guides(shape=guide_legend("Location Parameter")) +
+    geom_point(data=median.s3.s4,
+               aes(x=value, y=0, color=sample, shape="median"),
+               size=2.5, alpha=0.7) +
+    geom_point(data=mean.s3.s4,
+               aes(x=value, y=0, color=sample, shape="mean"),
+               size=2.5, alpha=0.7) +
+    geom_point(data=hl.s3.s4,
+               aes(x=value, y=0, color=sample, shape="Hodges-Lehmann"),
+               size=2.5, alpha=0.7)
+    
+
 mixed.w <- wilcox.test(x=mixed.s3, y=mixed.s4, conf.int=TRUE)
 print(mixed.w)
+
+mean(mixed.s3) - mean(mixed.s4)
+median(mixed.s3) - median(mixed.s4)
+hl.s3.s4[hl.s3.s4$sample == 's3',2] - hl.s3.s4[hl.s3.s4$sample == 's4',2]
+
+mean.s3.s4
 
 ls()
 

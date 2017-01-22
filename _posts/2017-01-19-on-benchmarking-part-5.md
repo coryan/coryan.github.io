@@ -358,6 +358,92 @@ print(mixed.sd)
 [1] 1912
 ```
 
+### Power analysis for the Mixed Distributions
+
+With the estimated standard deviation out of the way, I can compute
+the required number of samples to achieve a certain power and
+significance level.  I am picking 0.95 and 0.01, respectively:
+
+``` r
+mixed.pw <- power.t.test(delta=50, sd=mixed.sd, sig.level=0.01, power=0.95)
+print(mixed.pw)
+
+     Two-sample t test power calculation 
+
+              n = 52100.88
+          delta = 50
+             sd = 1912
+      sig.level = 0.01
+          power = 0.95
+    alternative = two.sided
+
+NOTE: n is number in *each* group
+```
+
+I need to remember to apply the 15% overhead for non-parametric
+statistics, and I prefer to round up to the nearest multiple of $$1000$$:
+
+``` r
+nsamples <- ceiling(1.15 * mixed.pw$n / 1000) * 1000
+print(nsamples)
+[1] 60000
+```
+
+I would like to test the Mann-Whitney test with, so I create two
+samples from the distribution:
+
+``` r
+mixed.s1 <- 1000 + rmixed(nsamples)
+mixed.s2 <- 1050 + rmixed(nsamples)
+
+df <- melt(data.frame(s1=mixed.s1, s2=mixed.s2))
+colnames(df) <- c('sample', 'value')
+ggplot(data=df, aes(x=value, color=sample)) + geom_density()
+```
+
+![](/public/{{page.id}}/mixed.s1.s2.svg
+"Two samples of the same Mixed Distribution")
+
+And apply the test to them:
+
+``` r
+mixed.w <- wilcox.test(x=mixed.s1, y=mixed.s2, conf.int=TRUE)
+print(mixed.w)
+	Wilcoxon rank sum test with continuity correction
+
+data:  mixed.s1 and mixed.s2
+W = 1728600000, p-value < 2.2e-16
+alternative hypothesis: true location shift is not equal to 0
+95 percent confidence interval:
+ -60.18539 -43.18903
+sample estimates:
+difference in location 
+             -51.68857 
+```
+
+That provides the answer I was expecting, the estimate for the
+difference in the location parameter ($$51.7$$)
+is fairly close to the true value of $$50.0$$.
+
+### Median, Means and Location Parameters
+
+The reader might wonder why do all this complicated calculations with
+the Mann-Whitney test, why not use the difference of the means or
+medians:
+
+``` r
+mean(mixed.s1) - mean(mixed.s2)
+[1] -52.78187
+median(mixed.s1) - median(mixed.s2)
+[1] -48.35018
+```
+
+Those are not too bad as estimates either.
+I guess I could just provide the easy answer: because you do not get a
+p-value that way!
+
+
+
 
 ## Notes
 
