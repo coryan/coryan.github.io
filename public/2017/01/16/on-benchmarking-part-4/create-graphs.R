@@ -10,11 +10,16 @@ require(fitdistrplus)
 args <- commandArgs(trailingOnly=TRUE)
 
 ## ... by default load the data from the GitHub pages site ...
-data.filename <- 'http://coryan.github.io/public/2017/01/16/on-benchmarking-part-4/data.csv'
-if (length(args) > 0) {
-    ## ... but allow the user to override in the command-line, the
-    ## user is typically running with new data ...
-    data.filename <- args[1]
+download <- FALSE
+if (length(args) > 0 & args[1] == 'download') {
+    download <- TRUE
+}
+
+url <- 'http://coryan.github.io/public/2017/01/16/on-benchmarking-part-4/'
+data.filename <- 'data.csv'
+if (download) {
+    ## ... only download the data if the user requested that ...
+    data.filename <- paste0(url, data.filename)
 }
 
 ## ... then just load the data...
@@ -57,6 +62,10 @@ plot.descdist(data, 'array')
 
 aggregate(microseconds ~ book_type, data=data, FUN=median)
 aggregate(microseconds ~ book_type, data=data, FUN=function(x) round(sd(x)))
+
+##
+## Appendix: Estimate Standard Deviation
+##
 
 ## ... use bootstraping to estimate the standard deviation ...                                    
 sd.estimator <- function(D,i) {
@@ -129,33 +138,30 @@ required.nsamples <-
                    required.power$n / 1000)
 required.nsamples
 
-## ... while it would be great to detect changes of
-## 6.6us, we would be happy if we detected
-## something much larger ...
-desired.delta <- max(min.delta, 50)
-## ... re-run power analysis ...
-required.power <- power.t.test(
-    delta=desired.delta, sd=estimated.sd,
-    sig.level=desired.significance, power=desired.power)
-required.nsamples <-
-    1000 * ceiling(nonparametric.extra.cost *
-                   required.power$n / 1000)
-required.nsamples
-
 ##
 ## Appendix: Goodness of Fit
 ##
 a.data <- subset(data, book_type == 'array')
 m.data <- subset(data, book_type == 'map')
 
-## Let's make sure the Map data is not really uniform ...
-m.unif.fit <- fitdist(m.data$microseconds, distr="unif")
-plot(m.unif.fit)
-svg(filename="map.fit.unif.svg", height=save.height, width=save.width)
-plot(m.unif.fit)
+## Let's make sure the Map data is not really normal ...
+m.normal.fit <- fitdist(m.data$microseconds, distr="norm")
+plot(m.normal.fit)
+svg(filename="map.fit.normal.svg", height=save.height, width=save.width)
+plot(m.normal.fit)
 dev.off()
-png(filename="map.fit.unif.png", height=png.h, png.w)
-plot(m.unif.fit)
+png(filename="map.fit.normal.png", height=png.h, png.w)
+plot(m.normal.fit)
+dev.off()
+
+## ... maybe Logistic? ...
+m.logis.fit <- fitdist(m.data$microseconds, distr="logis")
+plot(m.logis.fit)
+svg(filename="map.fit.logis.svg", height=save.height, width=save.width)
+plot(m.logis.fit)
+dev.off()
+png(filename="map.fit.logis.png", height=png.h, png.w)
+plot(m.logis.fit)
 dev.off()
 
 ## Both are "close" to the line for Gamma, let's try to fit them:

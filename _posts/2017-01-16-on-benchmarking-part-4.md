@@ -4,7 +4,7 @@ title: On Benchmarking, Part 4
 date: 2017-01-16 01:00
 ---
 
-{% assign ghsha = "f90425b2c364d0c8445d50a445bda30c7c6265d3" %}
+{% assign ghsha = "e444f0f072c1e705d932f1c2173e8c39f7aeb663" %}
 {% capture ghver %}https://github.com/coryan/jaybeams/blob/{{ghsha}}{% endcapture %}
 
 > This is a long series of posts where I try to teach myself how to
@@ -31,6 +31,13 @@ or at least it was cumbersome to use it to generate a large sample
 like this.
 In this post I review an improved version of the benchmark, and do
 some exploratory data analysis to prepare for our formal data capture.
+
+### Updates
+
+> I found a bug in the driver script for the benchmark, and updated
+> the results after fixing the bug.  None of the main conclusions
+> changed, the tests simply got more consistent, with lower standard
+> deviation.
 
 ## The New Benchmark
 
@@ -153,12 +160,13 @@ and [kurtosis](https://en.wikipedia.org/wiki/Kurtosis)
 would match the skewness and kurtosis of several commonly used
 distributions.
 For example, it seems the map-based order book closely matches the
-skweness and kurtosis for a uniform distribution, and one might be
-able to fit a beta distribution for it.
+skweness and kurtosis for a normal or
+[logistic](https://en.wikipedia.org/wiki/Logistic_distribution)
+distribution.
 Likewise, the array-based order book might match the
 [gamma distribution](https://en.wikipedia.org/wiki/Gamma_distribution)
-distribution family -- represented by the dashed line,
-and might be fitted to the beta distribution too.
+distribution family -- represented by the dashed line --
+or it might be fitted to the beta distribution.
 From the graphs it is not obvious if the
 [Weibull](https://en.wikipedia.org/wiki/Weibull_distribution)
 distribution would be a good fit.
@@ -187,14 +195,22 @@ exercise in statistical power analysis: you are going to use the
 [Student's t-test](https://en.wikipedia.org/wiki/Student's_t-test),
 and there are good functions in any statistical package to determine
 how many samples you need to achieve a certain statistical power.
-Alas!  We already pointed out that we will need to use some kind of
-nonparametric test, and the t-test is about as parametric as they
-come.
+
+The Student's t-test requires that the *statistic* being compared follows
+the normal distribution
+[[1]](http://stats.stackexchange.com/questions/19675/what-normality-assumptions-are-required-for-an-unpaired-t-test-and-when-are-the).
+If I was comparing the mean the test would be an excellent fit,
+the [CLT](https://en.wikipedia.org/wiki/Central_limit_theorem)
+applies in a wide range of circumstances,
+and it guarantees that the mean is well approximated by a normal distribution.
+Alas!  For this data the mean is not a good statistic,
+as we have pointed outliers should be expected with this data,
+and the mean is not a robust statistic.
 
 There are good news, the canonical nonparametric test for hypothesis
 testing is the
 [Mann-Whitney U Test](https://en.wikipedia.org/wiki/Mann%E2%80%93Whitney_U_test).
-There are results [[1]](http://www.jerrydallal.com/LHSP/npar.htm)
+There are results [[2]](http://www.jerrydallal.com/LHSP/npar.htm)
 showing that this test is only 15% less powerful than the t-test.
 So all we need to do is run the analysis for the t-test and add 15%
 more samples.
@@ -234,8 +250,8 @@ I can use the sample standard deviation as an estimator:
 
 | Book Type | StdDev (Sample) |
 | --------- | ---------------:|
-|     array |        674 |
-|       map |       1275 |
+|     array |        190 |
+|       map |        159 |
 
 That must be close to the population standard deviation, right?
 In principle yes, the sample standard deviation converges to the
@@ -250,12 +266,12 @@ several methods, the methods agree with each other and the results are:
 
 | Book Type | StdDef Low Estimate | StdDev High Estimate |
 | --------- | ---------------:| ---------------:|
-|     array |   664           | 685           |
-|       map |  1266           | 1283           |
+|     array |   186           | 193           |
+|       map |   156           | 161           |
 
 Because the sample size gets higher with larger standard deviations we
 use the upper values for the confidence intervals.  So we are going
-with $$1283$$ as our estimate of standard deviation.
+with $$193$$ as our estimate of standard deviation.
 
 ### Side Note: Equal Variance
 
@@ -334,39 +350,11 @@ required.nsamples
 {% endhighlight %}
 
 {% highlight rout %}
-[1] 1520000
+[1] 35000
 {% endhighlight %}
 
-Ouch, that is a whopping number of iterations to run.
-What is happening here?
-The effect I want to measure is extremely small ($$6.6 \mu s$$), while the
-standard deviation is almost $$200$$ times larger.
-
-It is possible to collect that much data,
-but would be really overkill in this case.
-I am willing to accept any effect of $$6.6 \mu s$$ as real,
-so I must be willing to accept effects of $$50 \mu s$$ too.
-The risk here is that I might reject some performance improvements for
-lack of evidence, but that seems unlikely given the data we have seen
-so far.
-So changing the parameters a bit I get:
-
-{% highlight r %}
-## ... re-run power analysis ...
-required.power <- power.t.test(
-    delta=desired.delta, sd=estimated.sd,
-    sig.level=desired.significance, power=desired.power)
-required.nsamples <-
-    1000 * ceiling(nonparametric.extra.cost *
-                   required.power$n / 1000)
-required.nsamples
-{% endhighlight %}
-
-{% highlight rout %}
-[1] 28000
-{% endhighlight %}
-
-That is a far more reasonable number of iterations to run.
+That is a reasonable number of iterations to run, so we proceed with
+that value.
 
 ### Side Note: About Power for Simpler Cases
 
@@ -392,7 +380,7 @@ powered enough for the problem they are trying to model.
 
 ## Future Work
 
-There are some results [[2]](http://www.pcg-random.org/) that indicate
+There are some results [[3]](http://www.pcg-random.org/) that indicate
 the Mersenne-Twister generator does not pass all statistical tests for
 randomness.
 We should modify the microbenchmark framework to use better RNG, such
@@ -417,27 +405,49 @@ were good fits or not.
 We reproduce here the analysis for the few distributions that are
 harder to discount just based on the Culley and Frey graphs.
 
-### Is the Uniform Distribution a good fit for the Map-based data?
+### Is the Normal Distribution a good fit for the Map-based data?
 
-Not really, the estimated density does not look uniform at all, just
-the kurtosis and skeweness happen to match the uniform distribution.
-But this is a good way to describe the testing process.
+Even if it was, I would like both samples to fit the sample
+distribution to use parametric methods, but this is a good way to
+describe the testing process:
 
-First you fit the data to the suspected distribution and plot the fit:
+First I fit the data to the suspected distribution and plot the fit:
 
 {% highlight r %}
-m.unif.fit <- fitdist(m.data$microseconds, distr="unif")
-plot(m.unif.fit)
+m.normal.fit <- fitdist(m.data$microseconds, distr="norm")
+plot(m.normal.fit)
 {% endhighlight %}
 
-![](/public/{{page.id}}/map.fit.unif.png
-"Samples of Map Based Order Book Fitted Against Uniform Distribution.")
+![](/public/{{page.id}}/map.fit.normal.png
+"Samples of Map Based Order Book Fitted Against the Normal Distribution.")
 
 The [Q-Q plot](https://en.wikipedia.org/wiki/Q%E2%80%93Q_plot)
 is a key step in the evaluation.
-The uniform distribution is not a good fit.
+You would want all (or most) of the dots to match the ideal $$x=y$$
+line in the graph.
+The match is good except at the left side, where the samples kink out
+of the ideal line.
+Depending on the application you may accept this as a good enough fit.
+I am going to reject it because we see that the other set of samples
+(array-based) does not match the normal distribution either.
 
-### Is the Gamma Distribution a Good Fit?
+### Is the Logistic Distribution a good fit for the Map-based data?
+
+The
+[Logistic distribution](https://en.wikipedia.org/wiki/Logistic_distribution)
+is also a close match for the map-based data.
+
+{% highlight r %}
+m.logis.fit <- fitdist(m.data$microseconds, distr="logis")
+plot(m.logis.fit)
+{% endhighlight %}
+
+![](/public/{{page.id}}/map.fit.logis.png
+"Samples of Map Based Order Book Fitted Against the Logistic Distribution.")
+
+Clearly a poor match also.
+
+### Is the Gamma Distribution a Good Fit for the Array-based data?
 
 The
 [Gamma distribution](https://en.wikipedia.org/wiki/Gamma_distribution)
@@ -547,14 +557,14 @@ for max):
 
 | Book Type | Normal Method | Basic Method | Percentile Method |
 | --------- | ------------- | ------------ | ----------------- |
-| Map       | (1266, 1283)  |  (1266, 1283)|   (1266, 1283) |
-| Array     | (664.3, 684.6)  |  (664.4, 684.4)|   (664.6, 684.6) |
+| Map       | (159.8, 160.3)  |  (156.8, 160.3)|   (156.8, 160.3) |
+| Array     | (186.6, 192.7)  |  (186.6, 192.7)|   (186.5, 192.7) |
 
 Notice that the different methods largely agree with each other, which
 is a good sign that the estimates are good.
 We take the maximum of all the estimates, because we are using it for
 power analysis where the highest value is more conservative.
-After rounding up the maximum, we obtain $$1284$$ as our estimate of
+After rounding up the maximum, we obtain $$193$$ as our estimate of
 the standard deviation for the purposes of power analysis.
 
 Incidentally, this procedure confirmed that the number of samples used
