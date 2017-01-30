@@ -1,15 +1,116 @@
 #!/usr/bin/env Rscript
 require(ggplot2)
 
-## In this script we demonstrate how the non-parametric test works,
-## and learn how it breaks!
-
 ## ... make the graphs look pretty ...
 golden.ratio <- (1+sqrt(5))/2
-save.width <- 8.0
-save.height <- save.width / golden.ratio
+svg.w <- 8.0
+svg.h <- svg.w / golden.ratio
 png.w <- 960
 png.h <- round(png.w / golden.ratio)
+
+## Get the command line arguments ...
+args <- commandArgs(trailingOnly=TRUE)
+download <- FALSE
+if (length(args) > 0 & args[1] == 'download') {
+    download <- TRUE
+}
+
+## ... by default load the data from the GitHub pages site ...
+url <- 'http://coryan.github.io/public/2017/01/19/on-benchmarking-part-5/'
+ni.filename <- 'data-ni.csv'
+data.filename <- 'data.csv'
+if (download) {
+    ni.filename <- paste0(url, ni.filename)
+    data.filename <- paste0(url, data.filename)
+}
+
+## ... then just load the data...
+ni <- read.csv(
+    file=ni.filename, header=FALSE, comment.char='#',
+    col.names=c('book_type', 'nanoseconds'))
+
+## ... I prefer microseconds because they are easier to think about ...
+ni$microseconds <- ni$nanoseconds / 1000.0
+ni$idx <- ave(ni$microseconds, ni$book_type, FUN=seq_along)
+
+## ... generate the density graph so we can visualize the data ...
+ggplot(data=ni, aes(x=microseconds, color=book_type)) +
+    geom_density() + theme(legend.position="bottom")
+ggsave(width=svg.w, heigh=svg.h, filename='noni.density.svg')
+ggsave(width=svg.w, heigh=svg.h, filename='noni.density.png')
+
+## ... kind of looks random to me ...
+ggplot(data=ni, aes(x=idx, y=microseconds, color=book_type)) +
+    theme(legend.position="bottom") + facet_grid(book_type ~ .) + geom_point()
+ggsave(width=svg.w, heigh=svg.h, filename='noni.plot.svg')
+ggsave(width=svg.w, heigh=svg.h, filename='noni.plot.png')
+
+## ... but really it is not, lots of auto-correlation ...
+ni.array.ts <- ts(subset(ni, book_type == 'array')$microseconds)
+ni.map.ts <- ts(subset(ni, book_type == 'map')$microseconds)
+
+par(mfrow=c(2,1))
+acf(ni.array.ts)
+acf(ni.map.ts)
+
+svg(width=svg.w, height=svg.h, filename='noni.acf.svg')
+par(mfrow=c(2,1))
+acf(ni.array.ts)
+acf(ni.map.ts)
+dev.off()
+
+png(width=png.w, height=png.h, filename='noni.acf.png')
+par(mfrow=c(2,1))
+acf(ni.array.ts)
+acf(ni.map.ts)
+dev.off()
+
+## ... after the code changes, how does it look? ...
+data <- read.csv(
+    file=data.filename, header=FALSE, comment.char='#',
+    col.names=c('book_type', 'nanoseconds'))
+
+## ... I prefer microseconds because they are easier to think about ...
+data$microseconds <- data$nanoseconds / 1000.0
+data$idx <- ave(data$microseconds, data$book_type, FUN=seq_along)
+data$ts <- ave(data$microseconds, data$book_type, FUN=cumsum)
+
+summary(data)
+
+## ... generate the density graph so we can visualize the data ...
+ggplot(data=data, aes(x=microseconds, color=book_type)) +
+    geom_density() + theme(legend.position="bottom")
+ggsave(width=svg.w, heigh=svg.h, filename='data.density.svg')
+ggsave(width=svg.w, heigh=svg.h, filename='data.density.png')
+
+## ... kind of looks random to me ...
+ggplot(data=data, aes(x=idx, y=microseconds, color=book_type)) +
+    theme(legend.position="bottom") + facet_grid(book_type ~ .) + geom_point()
+ggsave(width=svg.w, heigh=svg.h, filename='data.plot.svg')
+ggsave(width=svg.w, heigh=svg.h, filename='data.plot.png')
+
+## ... but really it is not, lots of auto-correlation ...
+data.array.ts <- ts(subset(data, book_type == 'array')$microseconds)
+data.map.ts <- ts(subset(data, book_type == 'map')$microseconds)
+
+par(mfrow=c(2,1))
+acf(data.array.ts)
+acf(data.map.ts)
+
+svg(width=svg.w, height=svg.h, filename='data.acf.svg')
+par(mfrow=c(2,1))
+acf(data.array.ts)
+acf(data.map.ts)
+dev.off()
+
+png(width=png.w, height=png.h, filename='data.acf.png')
+par(mfrow=c(2,1))
+acf(data.array.ts)
+acf(data.map.ts)
+dev.off()
+
+
+## Next we explore how the Mann-Whitnet U test works (and breaks).
 
 ## Start with a simple distribution:
 lnorm.s1 <- rlnorm(50000, 5, 0.2)
@@ -201,9 +302,6 @@ ggplot(data=df.s3.s4, aes(x=value, color=sample)) + geom_density() +
                size=2.5, alpha=0.7) +
     geom_point(data=mean.s3.s4,
                aes(x=value, y=0, color=sample, shape="mean"),
-               size=2.5, alpha=0.7) +
-    geom_point(data=hl.s3.s4,
-               aes(x=value, y=0, color=sample, shape="Hodges-Lehmann"),
                size=2.5, alpha=0.7)
     
 

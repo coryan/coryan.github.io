@@ -1,12 +1,11 @@
 ---
 layout: post
-title: 'On Benchmarking, Part 5'
-date: '2017-01-19 01:00'
+title: On Benchmarking, Part 5
+date: 2017-01-19 01:00
 draft: true
-published: true
 ---
 
-{% assign ghsha = "50b03a99fcb907aa5589692c2cf47b01dae21b8e" %}
+{% assign ghsha = "e444f0f072c1e705d932f1c2173e8c39f7aeb663" %}
 {% capture ghver %}https://github.com/coryan/jaybeams/blob/{{ghsha}}{% endcapture %}
 
 > This is a long series of posts where I try to teach myself how to
@@ -20,20 +19,154 @@ published: true
 In my [previous post]({{page.previous.url}}) I convinced myself that
 the data we are dealing with does not fit the most common
 distributions such as normal, exponential or lognormal.
-I decided to forge ahead using nonparametric statistics.
-I used bootstrapping to estimate the standard deviation of the 
-population, and then used that result to estimate the number of
-samples necessary to produce a good test.
+I decided to forge ahead using nonparametric statistics,
+as the most common parametric avenue is not going to work for this
+type of data.
+I also used power analysis to determine the number of samples
+necessary to have high confidence in the results,
+which required me to use bootstrapping to estimate the standard
+deviation of the population.
 
-In this post I will teach myself how to run the statistical test using
-mostly fake data.
-The objective is to fine tune our procedure and to make sure we
-understand the numbers that the test spews out.
+In this post I will choose the statistical test of hypothesis,
+and verify that the assumptions for the test hold.
+I will also familiarize myself with the test by using some mock data.
+
+## Modeling the Results
+
+I need to turn the original problem into the language of statistics,
+if the reader recalls, we want to compare the performance of
+`array_based_order_book` against the performance of
+`map_based_order_book`,
+and determine if they are really different or the results can be
+explained by luck.
+
+First I am going to model the performance results as random variables,
+I will use $$A$$ for the performance results (the running time of the
+benchmark) of `array_based_order_book` and $$M$$ for
+`map_based_order_book`.
+
+If all we wanted to compare was the mean of these random variables
+I could use
+[Student's t-test](https://en.wikipedia.org/wiki/Student's_t-test),
+yes, the underlying distributions are not normal, but the test only
+requires [[1]](http://stats.stackexchange.com/questions/19675/what-normality-assumptions-are-required-for-an-unpaired-t-test-and-when-are-the)
+that the *statistic* we are comparing distributes normal.
+The (difference of)mean most likely distributes normal for large samples,
+as the [CLT](https://en.wikipedia.org/wiki/Central_limit_theorem)
+applies in a wide range of circumstances.
+But I have convinced myself, and hopefully the reader, that
+means is not a great statistic for this type of data.
+It is not a robust statistic, and outliers should be common because of
+the long tail in the data.
+So I would prefer a more robust test.
+
+The [Mann-Whitney U
+Test](https://en.wikipedia.org/wiki/Mann%E2%80%93Whitney_U_test)
+is often recommended when the underlying distributions are not normal.
+It can be used to test the hypothesis that 
+
+$$P(A > M) < P(M > A)$$
+
+which is exactly what I am looking for.
+I want to assert that it is more likely that `array_based_order_book`
+will run faster than `map_based_order_book`.
+I do not need to assert that it is *always* faster, just that it is a
+good bet to use it.
+The Mann-Whitney U test also requires me to make a relatively weak set
+of assumptions, which I will check next.
+
+### Assumption: The responses are ordinal.
+
+This is trivial, the responses are real numbers that can be readily
+sorted.
+
+### Assumption: Null Hypothesis
+
+I define the null hypothesis $$H_0$$ to match the requirements of the
+test:
+
+$$P(A > M) = P(M > A)$$
+
+Intuitively this definition is saying that the code changes
+had no effect, that both versions have the same probability of being
+faster than the other.
+
+### Assumption: Alternative Hypothesis
+
+I define the alternative hypothesis $$H_1$$ to match the assumptions
+of the test:
+
+$$P(A > M) < P(M > A)$$
+
+As I discussed above, this definition matches my intuition of what I
+would like to assert about the code.
+
+### Assumption: Random Samples from Populations
+
+The test assumes the samples are random and extracted from a single
+population.
+It would be really bad, for example, if I grabbed half my samples from
+one population and half from another,
+that would break the "identically distributed" assumption that almost
+any statistical procedure requires.
+It would also be a "Bad Thing"[tm] if my samples were biased in any
+way.
+I have already discussed the problems in biasing that my approach has.
+While not perfect, I believe it to be good enough for the time being,
+and will proceed under the assumption that no biases exist.
+
+### Assumption: All the observations are independent of each other.
+
+I left the more difficult one for last.
+The difficulty is that it is easy to see that each sample may affect
+the results of the next one.
+Running the benchmark populates the instruction and data cache,
+affects the state of the memory arena,
+and may change the
+[P-state](https://en.wikipedia.org/wiki/Advanced_Configuration_and_Power_Interface#Performance_states)
+of the CPU.
+Furthermore, the samples are generated using a PRNG, if the generator
+was chosen poorly the samples may be auto-correlated.
+
+So I need to perform at least a basic test for independence of the
+samples.
+
+#### Checking Independence
+
+To check independence I first plot the raw results:
+
+![](/public/{{page.id}}/noni.plot.png
+"Raw Data for the Initial Test Results")
+
+Uh oh, those drops and peaks are not single points, there seems to be
+periods of time when the test runs faster or slower.  That does not
+bode well for my test.
+Let's see if the data does have any auto-correlation:
+
+![](/public/{{page.id}}/noni.plot.png
+"Correlogram for the Initial Test Results")
+
+Yikes!  That is a lot of auto-correlation.  What is wrong?
+After a long chase suspecting my random number generators I finally
+identified the bug
+[bug](https://github.com/coryan/jaybeams/commit/536f02372aa704a9be8e4853b54ad05f044c49fa#diff-04fdce1eb7bc3df53f7154b8dd889c5fR57)
+I had accidentally disabled the CPU frequency scaling settings in the
+benchmark driver.
+A quick
+[fix](https://github.com/coryan/jaybeams/commit/b79ae7d87a64ca8d1ee38c8f6c32978a801959c7)
+and the results look much better:
+
+![](/public/{{page.id}}/data.plot.png
+"Raw Data for the Initial Test Results")
+
+![](/public/{{page.id}}/data.plot.png
+"Correlogram for the Initial Test Results")
 
 ## Next Up
 
 In the next post we will finally run the statistical test against
 freshly minted data.
+
 
 ## Appendix: Familiarizing with the Mann-Whitney Test
 
