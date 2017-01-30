@@ -143,10 +143,16 @@ periods of time when the test runs faster or slower.  That does not
 bode well for my test.
 Let's see if the data does have any auto-correlation:
 
-![](/public/{{page.id}}/noni.plot.png
+![](/public/{{page.id}}/noni.acf.svg
 "Correlogram for the Initial Test Results")
 
-Yikes!  That is a lot of auto-correlation.  What is wrong?
+If you are not familiar with
+[correlograms](https://en.wikipedia.org/wiki/Correlogram)
+the Wikipedia description is much better than what I could say.
+But basically it shows the auto-correlation in the data at different
+lags.
+
+That is a lot of auto-correlation.  What is wrong?
 After a long chase suspecting my random number generators I finally
 identified the bug
 [bug](https://github.com/coryan/jaybeams/commit/536f02372aa704a9be8e4853b54ad05f044c49fa#diff-04fdce1eb7bc3df53f7154b8dd889c5fR57)
@@ -159,8 +165,11 @@ and the results look much better:
 ![](/public/{{page.id}}/data.plot.png
 "Raw Data for the Initial Test Results")
 
-![](/public/{{page.id}}/data.plot.png
+![](/public/{{page.id}}/data.acf.svg
 "Correlogram for the Initial Test Results")
+
+Other than the trivial autocorrelation at lag 0, the maximum
+autocorrelation for map and array is $$0.02$$.
 
 ## Next Up
 

@@ -109,6 +109,11 @@ acf(data.array.ts)
 acf(data.map.ts)
 dev.off()
 
+max(abs(tail(acf(data.array.ts)$acf, -1)))
+max(abs(tail(acf(data.map.ts)$acf, -1)))
+
+round(max(abs(tail(acf(data.array.ts)$acf, -1))), 2)
+round(max(abs(tail(acf(data.map.ts)$acf, -1))), 2)
 
 ## Next we explore how the Mann-Whitnet U test works (and breaks).
 
