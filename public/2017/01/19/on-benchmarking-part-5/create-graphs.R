@@ -115,14 +115,43 @@ max(abs(tail(acf(data.map.ts)$acf, -1)))
 round(max(abs(tail(acf(data.array.ts)$acf, -1))), 2)
 round(max(abs(tail(acf(data.map.ts)$acf, -1))), 2)
 
-## Next we explore how the Mann-Whitnet U test works (and breaks).
+##
+## Run the Mann-Whitney U test for the data
+##
+
+## ... verify the effect is large enough ...
+require(DescTools)
+data.hl <- HodgesLehmann(x=subset(data, book_type=='array')$microseconds,
+                         y=subset(data, book_type=='map')$microseconds,
+                         conf.level=0.95)
+print(data.hl)
+
+## ... verify the standard deviation is within range ...
+require(boot)
+data.array.sd.boot <- boot(data=subset(data, book_type=='array')$microseconds, R=10000, statistic=function(d, i) sd(d[i]))
+data.array.sd.ci <- boot.ci(data.array.sd.boot, type=c('perc', 'norm', 'basic'))
+print(data.array.sd.ci)
+
+data.map.sd.boot <- boot(data=subset(data, book_type=='map')$microseconds, R=10000, statistic=function(d, i) sd(d[i]))
+data.map.sd.ci <- boot.ci(data.map.sd.boot, type=c('perc', 'norm', 'basic'))
+print(data.map.sd.ci)
+
+## ... run the Mann-Whitney U test ...
+data.mw <- wilcox.test(microseconds ~ book_type, data=data)
+print(data.mw)
+
+
+
+##
+## Next we explore how the Mann-Whitney U test works (and breaks).
+##
 
 ## Start with a simple distribution:
 lnorm.s1 <- rlnorm(50000, 5, 0.2)
 qplot(x=lnorm.s1, geom="density", color=factor("s1"))
 
-ggsave('lnorm.s1.density.svg', width=save.width, height=save.height)
-ggsave('lnorm.s1.density.png', width=save.width, height=save.height)
+ggsave('lnorm.s1.density.svg', width=svg.w, height=svg.h)
+ggsave('lnorm.s1.density.png', width=svg.w, height=svg.h)
 
 ## ... the first question would be: what happens when you test a
 ## sample against itself?  Hopefully our test says "you cannot reject
@@ -145,8 +174,8 @@ df <- melt(data.frame(s1=lnorm.s1, s2=lnorm.s2))
 colnames(df) <- c('sample', 'value')
 ggplot(data=df, aes(x=value, color=sample)) + geom_density()
 
-ggsave('lnorm.s1.s2.density.svg', width=save.width, height=save.height)
-ggsave('lnorm.s1.s2.density.png', width=save.width, height=save.height)
+ggsave('lnorm.s1.s2.density.svg', width=svg.w, height=svg.h)
+ggsave('lnorm.s1.s2.density.png', width=svg.w, height=svg.h)
 
 ## ... run the test again ...
 w.s1.s2 <- wilcox.test(x=lnorm.s1, y=lnorm.s2, conf.int=TRUE)
@@ -160,8 +189,8 @@ lnorm.s4 <- 4000.1 + rlnorm(50000, 5, 0.2)
 df <- melt(data.frame(s3=lnorm.s3, s4=lnorm.s4))
 colnames(df) <- c('sample', 'value')
 ggplot(data=df, aes(x=value, color=sample)) + geom_density()
-ggsave('lnorm.s3.s4.density.svg', width=save.width, height=save.height)
-ggsave('lnorm.s3.s4.density.png', width=save.width, height=save.height)
+ggsave('lnorm.s3.s4.density.svg', width=svg.w, height=svg.h)
+ggsave('lnorm.s3.s4.density.png', width=svg.w, height=svg.h)
 w.s3.s4 <- wilcox.test(x=lnorm.s3, y=lnorm.s4, conf.int=TRUE)
 print(w.s3.s4)
 
@@ -190,8 +219,8 @@ lnorm.s6 <- 4001 + rlnorm(50000, 5, 0.2)
 df <- melt(data.frame(s5=lnorm.s5, s6=lnorm.s6))
 colnames(df) <- c('sample', 'value')
 ggplot(data=df, aes(x=value, color=sample)) + geom_density()
-ggsave('lnorm.s5.s6.density.svg', width=save.width, height=save.height)
-ggsave('lnorm.s5.s6.density.png', width=save.width, height=save.height)
+ggsave('lnorm.s5.s6.density.svg', width=svg.w, height=svg.h)
+ggsave('lnorm.s5.s6.density.png', width=svg.w, height=svg.h)
 s5.s6.w <- wilcox.test(x=lnorm.s5, y=lnorm.s6, conf.int=TRUE)
 print(s5.s6.w)
 
@@ -204,8 +233,8 @@ lnorm.s8 <- 4005 + rlnorm(50000, 5, 0.2)
 df <- melt(data.frame(s7=lnorm.s7, s8=lnorm.s8))
 colnames(df) <- c('sample', 'value')
 ggplot(data=df, aes(x=value, color=sample)) + geom_density()
-ggsave('lnorm.s7.s8.density.svg', width=save.width, height=save.height)
-ggsave('lnorm.s7.s8.density.png', width=save.width, height=save.height)
+ggsave('lnorm.s7.s8.density.svg', width=svg.w, height=svg.h)
+ggsave('lnorm.s7.s8.density.png', width=svg.w, height=svg.h)
 s7.s8.w <- wilcox.test(x=lnorm.s7, y=lnorm.s8, conf.int=TRUE)
 print(s7.s8.w)
 
@@ -229,8 +258,8 @@ rmixed <- function(n, shape=0.2, scale=2000) {
 ## Let's first get some samples from this distribution ...
 mixed.test <- 1000 + rmixed(20000)
 qplot(x=mixed.test, color=factor("mixed.test"), geom="density")
-ggsave('mixed.test.density.svg', width=save.width, height=save.height)
-ggsave('mixed.test.density.png', width=save.width, height=save.height)
+ggsave('mixed.test.density.svg', width=svg.w, height=svg.h)
+ggsave('mixed.test.density.png', width=svg.w, height=svg.h)
 
 ## ... and use that sample to estimate the standard deviation via
 ## bootstrapping ...
@@ -238,7 +267,7 @@ require(boot)
 mixed.boot <- boot(data=mixed.test, R=10000,
                    statistic=function(d, i) sd(d[i]))
 plot(mixed.boot)
-svg(filename="mixed.boot.svg", width=save.width, height=save.height)
+svg(filename="mixed.boot.svg", width=svg.w, height=svg.h)
 plot(mixed.boot)
 dev.off()
 png(filename="mixed.boot.png", width=png.w, height=png.h)
@@ -268,8 +297,8 @@ mixed.s2 <- 1050 + rmixed(nsamples)
 df <- melt(data.frame(s1=mixed.s1, s2=mixed.s2))
 colnames(df) <- c('sample', 'value')
 ggplot(data=df, aes(x=value, color=sample)) + geom_density()
-ggsave('mixed.s1.s2.svg', width=save.width, height=save.height)
-ggsave('mixed.s1.s2.png', width=save.width, height=save.height)
+ggsave('mixed.s1.s2.svg', width=svg.w, height=svg.h)
+ggsave('mixed.s1.s2.png', width=svg.w, height=svg.h)
 
 ## ... we can then compute the Mann-Whitney test ...
 
@@ -281,44 +310,69 @@ print(mixed.w)
 mean(mixed.s1) - mean(mixed.s2)
 median(mixed.s1) - median(mixed.s2)
 
+## Create a more complex distribution to demonstrate what happens when
+## the change is not just a location parameter ...
+rcomplex <- function(n, scale=2000,
+                     s1=0.2, l1=0, s2=0.2, l2=1.0, s3=0.2, l3=3.0) {
+    g1 <- l1 + rlnorm(0.75*n, sdlog=s1)
+    g2 <- l2 + rlnorm(0.20*n, sdlog=s2)
+    g3 <- l3 + rlnorm(0.05*n, sdlog=s3)
+    v <- scale * append(append(g1, g2), g3)
+    ## Generate a random permutation, otherwise g1, g2, and g3 are in
+    ## order in the vector
+    return(sample(v))
+}
+complex.s1 <-  950 + rcomplex(nsamples, scale=1500, l3=5.0)
+complex.s2 <- 1000 + rcomplex(nsamples)
 
-
-## What happens if we double the number of samples?
-mixed.s3 <- 1000 + rmixed(nsamples)
-mixed.s4 <-  950 + rmixed(nsamples, scale=1500, shape=0.15)
-
-df <- melt(data.frame(s3=mixed.s3, s4=mixed.s4))
+df <- melt(data.frame(s1=complex.s1, s2=complex.s2))
 colnames(df) <- c('sample', 'value')
-ggplot(data=df, aes(x=value, color=sample)) + geom_density()
-ggsave('mixed.s3.s4.svg', width=save.width, height=save.height)
-ggsave('mixed.s3.s4.png', width=save.width, height=save.height)
+ggplot(data=df, aes(x=value, color=sample)) +
+    theme(legend.position="bottom") + geom_density()
+ggsave('complex.s1.s2.svg', width=svg.w, height=svg.h)
+ggsave('complex.s1.s2.png', width=svg.w, height=svg.h)
+
+aggregate(value ~ sample, data=df, FUN=sd)
+
+complex.w <- wilcox.test(value ~ sample, data=df, conf.int=TRUE)
+print(complex.w)
+
+HodgesLehmann(x=complex.s1, y=complex.s2, conf.level=0.95)
+
+ggplot(data=df, aes(x=value, color=sample)) +
+    theme(legend.position="bottom") + stat_ecdf()
 
 require(DescTools)
-df.s3.s4 <- df
-median.s3.s4 <- aggregate(value ~ sample, data=df.s3.s4, FUN=median)
-mean.s3.s4 <- aggregate(value ~ sample, data=df.s3.s4, FUN=mean)
-hl.s3.s4 <- aggregate(value ~ sample, data=df.s3.s4, FUN=HodgesLehmann)
+df.s1.s2 <- df
+median.s1.s2 <- aggregate(value ~ sample, data=df.s1.s2, FUN=median)
+mean.s1.s2 <- aggregate(value ~ sample, data=df.s1.s2, FUN=mean)
+hl.s1.s2 <- aggregate(value ~ sample, data=df.s1.s2, FUN=HodgesLehmann)
 
-ggplot(data=df.s3.s4, aes(x=value, color=sample)) + geom_density() +
+ggplot(data=df.s1.s2, aes(x=value, color=sample)) + stat_ecdf() +
     theme(legend.position="bottom") +
     guides(shape=guide_legend("Location Parameter")) +
-    geom_point(data=median.s3.s4,
+    geom_point(data=median.s1.s2,
                aes(x=value, y=0, color=sample, shape="median"),
                size=2.5, alpha=0.7) +
-    geom_point(data=mean.s3.s4,
+    geom_point(data=mean.s1.s2,
                aes(x=value, y=0, color=sample, shape="mean"),
+               size=2.5, alpha=0.7) +
+    geom_point(data=hl.s1.s2,
+               aes(x=value, y=0, color=sample, shape="HL"),
                size=2.5, alpha=0.7)
-    
 
-mixed.w <- wilcox.test(x=mixed.s3, y=mixed.s4, conf.int=TRUE)
-print(mixed.w)
+ggsave('complex.ecdf.s1.s2.svg', width=svg.w, height=svg.h)
+ggsave('complex.ecdf.s1.s2.png', width=svg.w, height=svg.h)
 
-mean(mixed.s3) - mean(mixed.s4)
-median(mixed.s3) - median(mixed.s4)
-hl.s3.s4[hl.s3.s4$sample == 's3',2] - hl.s3.s4[hl.s3.s4$sample == 's4',2]
+d <- sample(complex.s1) - sample(complex.s2)
+qplot(x=d, geom="density") +
+    theme(legend.position="bottom") +
+    geom_point(aes(x=median(d), y=0, shape="HL"), size=2.7, color="blue")
+ggsave('complex.diff.s1.s2.svg', width=svg.w, height=svg.h)
+ggsave('complex.diff.s1.s2.png', width=svg.w, height=svg.h)
 
-mean.s3.s4
 
+###
 ls()
 
 q(save='no')

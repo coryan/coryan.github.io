@@ -65,7 +65,7 @@ Test](https://en.wikipedia.org/wiki/Mann%E2%80%93Whitney_U_test)
 is often recommended when the underlying distributions are not normal.
 It can be used to test the hypothesis that 
 
-$$P(A > M) < P(M > A)$$
+$$P(A > M) \ne P(M > A)$$
 
 which is exactly what I am looking for.
 I want to assert that it is more likely that `array_based_order_book`
@@ -96,7 +96,7 @@ faster than the other.
 I define the alternative hypothesis $$H_1$$ to match the assumptions
 of the test:
 
-$$P(A > M) < P(M > A)$$
+$$P(A > M) \ne P(M > A)$$
 
 As I discussed above, this definition matches my intuition of what I
 would like to assert about the code.
@@ -131,7 +131,7 @@ was chosen poorly the samples may be auto-correlated.
 So I need to perform at least a basic test for independence of the
 samples.
 
-#### Checking Independence
+### Checking Independence
 
 To check independence I first plot the raw results:
 
@@ -154,7 +154,7 @@ lags.
 
 That is a lot of auto-correlation.  What is wrong?
 After a long chase suspecting my random number generators I finally
-identified the bug
+identified the
 [bug](https://github.com/coryan/jaybeams/commit/536f02372aa704a9be8e4853b54ad05f044c49fa#diff-04fdce1eb7bc3df53f7154b8dd889c5fR57)
 I had accidentally disabled the CPU frequency scaling settings in the
 benchmark driver.
@@ -171,11 +171,132 @@ and the results look much better:
 Other than the trivial autocorrelation at lag 0, the maximum
 autocorrelation for map and array is $$0.02$$.
 
+### Measuring the Effect
+
+I have not yet declared how we are going to measure the effect.
+The standard statistic for this purpose is the
+[Hodges-Lehmann
+Estimator](https://en.wikipedia.org/wiki/Hodges%E2%80%93Lehmann_estimator).
+Its definition is relatively simple: take all the pairs formed by
+taking one sample from $$A$$ and one sample from $$B$$, compute the
+differences of each pair, then compute the median of those
+differences, that is the value of the estimator.
+
+Intuitively, if $$HL\Delta$$ is the value of the Hodges-Lehmann
+estimator then we can say that at least 50% of the time
+
+$$(A - B) < HL\Delta$$
+
+and -- if $$HL\Delta$$ is negative -- then at least 50% of the time the
+`array_based_order_book` is faster than `map_based_order_book`.
+I have to be careful, because I cannot make assertions about *all* of
+the time.  It is possible that the p51 of those differences of pairs
+is a large positive number, and we will see in the
+[Appendix](#more-than-the-location-parameter) that such results are quite
+possible.
+
+## Applying the Test
+
+Applying the statistical test is a bit of an anti-climax.
+But let's recall what we are about to do:
+
+1. The results are only interesting if the *effect*, as measured by
+the Hodges-Lehmann Estimator is larger than the minimum desired
+effect, which I set to $$6.6 \mu s$$ in a previous post.
+1. The test needs at least 35,000 iterations to be sufficiently
+powered ($$\beta=0.05$$) to detect that effect at a significance level
+of $$\alpha=0.01$$, as long as the estimated standard
+deviation is less than $$193$$.
+1. We are going to use the Mann-Whitney U test to test the null
+hypothesis $$H_0$$ that both distributions are identical.
+
+``` r
+data.hl <- HodgesLehmann(x=subset(data, book_type=='array')$microseconds,
+                         y=subset(data, book_type=='map')$microseconds,
+                         conf.level=0.95)
+print(data.hl)
+```
+
+```
+     est   lwr.ci   upr.ci 
+-816.907 -819.243 -814.566 
+```
+
+The estimated effect is, therefore, at least $$814 \mu s$$.
+We verify that the estimated standard deviations are small enough to
+keep the test sufficiently powered:
+
+``` r
+require(boot)
+data.array.sd.boot <- boot(data=subset(
+    data, book_type=='array')$microseconds, R=10000,
+          statistic=function(d, i) sd(d[i]))
+data.array.sd.ci <- boot.ci(data.array.sd.boot, type=c('perc', 'norm', 'basic'))
+print(data.array.sd.ci)
+```
+
+```
+BOOTSTRAP CONFIDENCE INTERVAL CALCULATIONS
+Based on 10000 bootstrap replicates
+
+CALL : 
+boot.ci(boot.out = data.array.sd.boot, type = c("perc", "norm", 
+    "basic"))
+
+Intervals : 
+Level      Normal              Basic              Percentile     
+95%   (185.1, 189.5 )   (185.1, 189.5 )   (185.1, 189.5 )  
+Calculations and Intervals on Original Scale
+```
+
+``` r
+data.map.sd.boot <- boot(data=subset(
+    data, book_type=='map')$microseconds, R=10000,
+    statistic=function(d, i) sd(d[i]))
+data.map.sd.ci <- boot.ci(
+    data.map.sd.boot, type=c('perc', 'norm', 'basic'))
+print(data.map.sd.ci)
+```
+
+```
+BOOTSTRAP CONFIDENCE INTERVAL CALCULATIONS
+Based on 10000 bootstrap replicates
+
+CALL : 
+boot.ci(boot.out = data.map.sd.boot, type = c("perc", "norm", "basic"))
+
+Intervals : 
+Level      Normal              Basic              Percentile     
+95%   (154.6, 157.1 )   (154.6, 157.1 )   (154.6, 157.1 )  
+Calculations and Intervals on Original Scale
+```
+
+So all assumptions are met to run the hypothesis test:
+
+``` r
+data.mw <- wilcox.test(microseconds ~ book_type, data=data)
+print(data.mw)
+```
+
+```
+	Wilcoxon rank sum test with continuity correction
+
+data:  microseconds by book_type
+W = 7902700, p-value < 2.2e-16
+alternative hypothesis: true location shift is not equal to 0
+```
+
+Therefore we can *reject* the null hypothesis that
+
+$$P(A > M) = P(M > A)$$
+
+at the $$\alpha=0.01$$ confidence level.
+
 ## Next Up
 
-In the next post we will finally run the statistical test against
-freshly minted data.
-
+In the next post I would like to demonstrate how the technique can be
+applied to less obvious cases, such as small micro-optimizations where
+the effects are much smaller.
 
 ## Appendix: Familiarizing with the Mann-Whitney Test
 
@@ -212,7 +333,9 @@ I think that is the sad cost of rigor.
 ``` r
 s1.w <- wilcox.test(x=lnorm.s1, lnorm.s1, conf.int=TRUE)
 print(s1.w)
+```
 
+```
 	Wilcoxon rank sum test with continuity correction
 
 data:  lnorm.s1 and lnorm.s1
@@ -249,7 +372,9 @@ ggplot(data=df, aes(x=value, color=sample)) + geom_density()
 ``` r
 w.s1.s2 <- wilcox.test(x=lnorm.s1, y=lnorm.s2, conf.int=TRUE)
 print(w.s1.s2)
+```
 
+```
 Wilcoxon rank sum test with continuity correction
 
 data:  lnorm.s1 and lnorm.s2
@@ -296,7 +421,9 @@ We can use the Mann-Whitney test to compare them:
 ``` r
 w.s3.s4 <- wilcox.test(x=lnorm.s3, y=lnorm.s4, conf.int=TRUE)
 print(w.s3.s4)
+```
 
+```
 	Wilcoxon rank sum test with continuity correction
 
 data:  lnorm.s3 and lnorm.s4
@@ -322,7 +449,9 @@ powered:
 ``` r
 require(pwr)
 print(power.t.test(delta=0.1, sd=sd(lnorm.s3), sig.level=0.05, power=0.8))
+```
 
+```
      Two-sample t test power calculation 
 
               n = 1486639
@@ -355,8 +484,7 @@ print(power.t.test(n=50000, delta=NULL, sd=sd(lnorm.s3),
 NOTE: n is number in *each* group
 ```
 
-Seems like we need to either pick larger effects, or
-larger sample sizes.
+Seems like we need to either pick larger effects, or larger sample sizes.
 
 ### A Sufficiently Powered Test
 
@@ -378,7 +506,9 @@ ggplot(data=df, aes(x=value, color=sample)) + geom_density()
 ``` r
 s5.s6.w <- wilcox.test(x=lnorm.s5, y=lnorm.s6, conf.int=TRUE)
 print(s5.s6.w)
+```
 
+```
 	Wilcoxon rank sum test with continuity correction
 
 data:  lnorm.s5 and lnorm.s6
@@ -391,8 +521,7 @@ difference in location
              -1.249286 
 ```
 
-
-It is working again!  Now we can reject the null hypothesis at the
+It is working again!  Now I can reject the null hypothesis at the
 0.01 level (p-value is much smaller than that).
 The effect estimate is -1.24, and we know the test is powered enough
 to detect that.
@@ -403,7 +532,8 @@ parameter of the `x` series against the second series.
 
 The parameter estimate is not very accurate though, the true parameter
 is -1.0, we got -1.24.  Yes, the true value falls in the 95%
-confidence interval.  We can either increase the number of samples or
+confidence interval, but how can we make that interval smaller?
+We can either increase the number of samples or
 the effect, let's go with the effect:
 
 ``` r
@@ -420,7 +550,9 @@ ggplot(data=df, aes(x=value, color=sample)) + geom_density()
 ```
 s7.s8.w <- wilcox.test(x=lnorm.s7, y=lnorm.s8, conf.int=TRUE)
 print(s7.s8.w)
+```
 
+```
 	Wilcoxon rank sum test with continuity correction
 
 data:  lnorm.s7 and lnorm.s8
@@ -564,6 +696,9 @@ And apply the test to them:
 ``` r
 mixed.w <- wilcox.test(x=mixed.s1, y=mixed.s2, conf.int=TRUE)
 print(mixed.w)
+```
+
+```
 	Wilcoxon rank sum test with continuity correction
 
 data:  mixed.s1 and mixed.s2
@@ -580,22 +715,78 @@ That provides the answer I was expecting, the estimate for the
 difference in the location parameter ($$51.7$$)
 is fairly close to the true value of $$50.0$$.
 
-### Median, Means and Location Parameters
+### More than the Location Parameter
 
-The reader might wonder why do all this complicated calculations with
-the Mann-Whitney test, why not use the difference of the means or
-medians:
+So far I have been using simple translations of the same distribution,
+the Mann-Whitnet U test is most powerful in that case.
+I want to demonstrate the limitations of the test when the two random
+variables differ by more than just a location parameter.
+
+First I create some more complex distributions:
 
 ``` r
-mean(mixed.s1) - mean(mixed.s2)
-[1] -52.78187
-median(mixed.s1) - median(mixed.s2)
-[1] -48.35018
+rcomplex <- function(n, scale=2000,
+                     s1=0.2, l1=0, s2=0.2, l2=1.0, s3=0.2, l3=3.0) {
+    g1 <- l1 + rlnorm(0.75*n, sdlog=s1)
+    g2 <- l2 + rlnorm(0.20*n, sdlog=s2)
+    g3 <- l3 + rlnorm(0.05*n, sdlog=s3)
+    v <- scale * append(append(g1, g2), g3)
+    return(sample(v))
+}
 ```
 
-Those are not too bad as estimates either.
-I guess I could just provide the easy answer: because you do not get a
-p-value that way!
+and use this function to generate two samples with very different
+parameters:
+
+``` r
+complex.s1 <-  950 + rcomplex(nsamples, scale=1500, l3=5.0)
+complex.s2 <- 1000 + rcomplex(nsamples)
+```
+
+![](/public/{{page.id}}/complex.s1.s2.svg
+"Two Samples of two Different Distributions")
+
+We can still run the Mann-Whitney U test:
+
+``` r
+complex.w <- wilcox.test(value ~ sample, data=df, conf.int=TRUE)
+print(complex.w)
+```
+
+```
+	Wilcoxon rank sum test with continuity correction
+
+data:  value by sample
+W = 998860000, p-value < 2.2e-16
+alternative hypothesis: true location shift is not equal to 0
+95 percent confidence interval:
+ -581.5053 -567.7730
+sample estimates:
+difference in location 
+             -574.6352 
+```
+
+R dutifully produces an estimate of the difference in location,
+because I asked for it, but not because it has any reasonable
+interpretation beyond "this is the median of the differences".
+Looking at the cumulative histogram we can see that sometimes *s1* is
+"faster" than *s2*, but the opposite is also true:
+
+![](/public/{{page.id}}/complex.ecdf.s1.s2.svg
+"Empirical Cumulative Distribution Function for Samples, and Location Parameters")
+
+I also found it useful to plot the density of the differences:
+
+![](/public/{{page.id}}/complex.diff.s1.s2.svg
+"Estimated Density of the Differences between S1 and S2")
+
+This shows that while the Hodges-Lehmann estimator is negative, and
+significant, that is not the end of the story, many samples are
+higher.
+
+I should be careful in how I interpret the results of the Mann-Whitney
+U test when the distributions differ by more than just a location
+parameter.
 
 ## Notes
 
@@ -610,7 +801,7 @@ The data thus generated was processed with a small R
 statistical analysis and generate the graphs shown in this post.
 The R script as well as the
 [data](/public/{{page.id}}/data.csv) used here are available for
-download through the links.
+download.
 
 Metadata about the tests, including platform details can be found in
 comments embedded with the data file.
@@ -622,7 +813,7 @@ The highlights of that metadata is reproduced here:
 * C Library: glibc 2.22
 * C++ Library: libstdc++-5.3.1-6.fc23.x86_64
 * Compiler: gcc 5.3.1 20160406
-* Compiler Options: -O3 -ffast-math -Wall -Wno-deprecated-declarations
+* Compiler Options: -O3 -Wall -Wno-deprecated-declarations
 
 The data and graphs in the
 [Appendix](#appendix-familiarizing-with-the-mann-whitney-test)
