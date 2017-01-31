@@ -18,60 +18,64 @@ draft: true
 
 In my [previous post]({{page.previous.url}}) I convinced myself that
 the data we are dealing with does not fit the most common
-distributions such as normal, exponential or lognormal.
-I decided to forge ahead using nonparametric statistics,
-as the most common parametric avenue is not going to work for this
-type of data.
+distributions such as normal, exponential or lognormal,
+and therefore I decided to use nonparametric statistics to analyze the
+data.
 I also used power analysis to determine the number of samples
-necessary to have high confidence in the results,
-which required me to use bootstrapping to estimate the standard
-deviation of the population.
+necessary to have high confidence in the results.
 
 In this post I will choose the statistical test of hypothesis,
 and verify that the assumptions for the test hold.
 I will also familiarize myself with the test by using some mock data.
+This will address some of the issues raised in
+[Part 1](/2017/01/04/on-benchmarking-part-1/) of these series,
+specifically [[I10]][issue 10]: the lack of statistical significance
+in the results, in other words, whether they can be explained by luck
+alone or not.
 
-## Modeling the Results
+## Modeling the Problem
 
 I need to turn the original problem into the language of statistics,
-if the reader recalls, we want to compare the performance of
-`array_based_order_book` against the performance of
+if the reader recalls, I want to compare the performance of two
+classes in JayBeams:
+`array_based_order_book` against
 `map_based_order_book`,
 and determine if they are really different or the results can be
 explained by luck.
 
-First I am going to model the performance results as random variables,
+I am going to model the performance results as random variables,
 I will use $$A$$ for the performance results (the running time of the
 benchmark) of `array_based_order_book` and $$M$$ for
 `map_based_order_book`.
 
 If all we wanted to compare was the mean of these random variables
 I could use
-[Student's t-test](https://en.wikipedia.org/wiki/Student's_t-test),
-yes, the underlying distributions are not normal, but the test only
+[Student's t-test](https://en.wikipedia.org/wiki/Student's_t-test).
+While the underlying distributions are not normal, the test only
 requires [[1]](http://stats.stackexchange.com/questions/19675/what-normality-assumptions-are-required-for-an-unpaired-t-test-and-when-are-the)
-that the *statistic* we are comparing distributes normal.
-The (difference of)mean most likely distributes normal for large samples,
+that the *statistic* you compare follows the normal distribution.
+The (difference of)means most likely distributes normal for large samples,
 as the [CLT](https://en.wikipedia.org/wiki/Central_limit_theorem)
 applies in a wide range of circumstances.
+
 But I have convinced myself, and hopefully the reader, that
 means is not a great statistic for this type of data.
 It is not a robust statistic, and outliers should be common because of
 the long tail in the data.
-So I would prefer a more robust test.
+I would prefer a more robust test.
 
-The [Mann-Whitney U
+On the other had, the [Mann-Whitney U
 Test](https://en.wikipedia.org/wiki/Mann%E2%80%93Whitney_U_test)
 is often recommended when the underlying distributions are not normal.
 It can be used to test the hypothesis that 
 
-$$P(A > M) \ne P(M > A)$$
+$$P(A > M) < P(M > A)$$
 
 which is exactly what I am looking for.
 I want to assert that it is more likely that `array_based_order_book`
 will run faster than `map_based_order_book`.
 I do not need to assert that it is *always* faster, just that it is a
-good bet to use it.
+good bet that it is.
 The Mann-Whitney U test also requires me to make a relatively weak set
 of assumptions, which I will check next.
 
@@ -98,8 +102,15 @@ of the test:
 
 $$P(A > M) \ne P(M > A)$$
 
-As I discussed above, this definition matches my intuition of what I
-would like to assert about the code.
+Notice that this is weaker than what I would like to assert:
+
+$$P(A > M) > P(M > A)$$
+
+As we will see in the
+[Appendix](#appendix-familiarizing-with-the-mann-whitney-test)
+that alternative hypothesis requires additional assumptions that I
+cannot make, specifically that the two distributions only differ by
+some location parameter.
 
 ### Assumption: Random Samples from Populations
 
@@ -111,8 +122,11 @@ that would break the "identically distributed" assumption that almost
 any statistical procedure requires.
 It would also be a "Bad Thing"[tm] if my samples were biased in any
 way.
+
+I think the issue of sampling from a single population is trivial, by
+definition we are extracting samples from one population.
 I have already discussed the problems in biasing that my approach has.
-While not perfect, I believe it to be good enough for the time being,
+while not perfect, I believe it to be good enough for the time being,
 and will proceed under the assumption that no biases exist.
 
 ### Assumption: All the observations are independent of each other.
@@ -140,17 +154,12 @@ To check independence I first plot the raw results:
 
 Uh oh, those drops and peaks are not single points, there seems to be
 periods of time when the test runs faster or slower.  That does not
-bode well for my test.
-Let's see if the data does have any auto-correlation:
+bode well for an independence test.
+I will use a [correlogram](https://en.wikipedia.org/wiki/Correlogram)
+to examine if the data shows any auto-correlation:
 
 ![](/public/{{page.id}}/noni.acf.svg
 "Correlogram for the Initial Test Results")
-
-If you are not familiar with
-[correlograms](https://en.wikipedia.org/wiki/Correlogram)
-the Wikipedia description is much better than what I could say.
-But basically it shows the auto-correlation in the data at different
-lags.
 
 That is a lot of auto-correlation.  What is wrong?
 After a long chase suspecting my random number generators I finally
@@ -158,9 +167,12 @@ identified the
 [bug](https://github.com/coryan/jaybeams/commit/536f02372aa704a9be8e4853b54ad05f044c49fa#diff-04fdce1eb7bc3df53f7154b8dd889c5fR57)
 I had accidentally disabled the CPU frequency scaling settings in the
 benchmark driver.
+The data is auto-correlated because sometimes the load
+generated by the benchmark changes the P-state of the processor, and
+that affects several future results.
 A quick
 [fix](https://github.com/coryan/jaybeams/commit/b79ae7d87a64ca8d1ee38c8f6c32978a801959c7)
-and the results look much better:
+to set the P-state to a fixed value, and the results look much better:
 
 ![](/public/{{page.id}}/data.plot.png
 "Raw Data for the Initial Test Results")
@@ -211,9 +223,10 @@ deviation is less than $$193$$.
 hypothesis $$H_0$$ that both distributions are identical.
 
 ``` r
-data.hl <- HodgesLehmann(x=subset(data, book_type=='array')$microseconds,
-                         y=subset(data, book_type=='map')$microseconds,
-                         conf.level=0.95)
+data.hl <- HodgesLehmann(
+    x=subset(data, book_type=='array')$microseconds,
+    y=subset(data, book_type=='map')$microseconds,
+    conf.level=0.95)
 print(data.hl)
 ```
 
@@ -231,7 +244,8 @@ require(boot)
 data.array.sd.boot <- boot(data=subset(
     data, book_type=='array')$microseconds, R=10000,
           statistic=function(d, i) sd(d[i]))
-data.array.sd.ci <- boot.ci(data.array.sd.boot, type=c('perc', 'norm', 'basic'))
+data.array.sd.ci <- boot.ci(
+    data.array.sd.boot, type=c('perc', 'norm', 'basic'))
 print(data.array.sd.ci)
 ```
 
@@ -271,7 +285,11 @@ Level      Normal              Basic              Percentile
 Calculations and Intervals on Original Scale
 ```
 
-So all assumptions are met to run the hypothesis test:
+So all assumptions are met to run the hypothesis test.
+R calls this test `wilcox.test()` because there is no general
+agreement on the literature about whether "Mann-Whitney U test" or
+"Wilcoxon Rank Sum" is the correct name, regardless, running the test
+is easy:
 
 ``` r
 data.mw <- wilcox.test(microseconds ~ book_type, data=data)
@@ -291,6 +309,16 @@ Therefore we can *reject* the null hypothesis that
 $$P(A > M) = P(M > A)$$
 
 at the $$\alpha=0.01$$ confidence level.
+
+## Summary
+
+I have addressed one of the remaining issues from the first post in
+the series:
+
+* [[I10]][issue 10] I have provided a comparison of the performance of
+`array_based_order_book` against `map_based_order_book`, based on the
+Mann-Whitney U test, and shown that these results are very likely not
+explained by luck alone.
 
 ## Next Up
 
@@ -819,3 +847,5 @@ The data and graphs in the
 [Appendix](#appendix-familiarizing-with-the-mann-whitney-test)
 is randomly generated, the reader will not get the same results I did
 when executing the script to generate those graphs.
+
+[issue 10]: /2017/01/04/on-benchmarking-part-1/#bad-no-statistical-significance
