@@ -371,8 +371,92 @@ qplot(x=d, geom="density") +
 ggsave('complex.diff.s1.s2.svg', width=svg.w, height=svg.h)
 ggsave('complex.diff.s1.s2.png', width=svg.w, height=svg.h)
 
-
 ###
+### Appendix: Learning about the Hodges-Lehmann Estimator
+###
+require(DescTools)
+require(ggplot2)
+routlier <- function(n, scale=2000,
+                     s1=0.2, l1=0, s2=0.1, l2=1.0, fraction=0.01) {
+    g1 <- l1 + rlnorm((1.0 - fraction)*n, sdlog=s1)
+    g2 <- l2 + rlnorm(fraction*n, sdlog=s2)
+    v <- scale * append(g1, g2)
+    return(sample(v))
+}
+
+o1 <- routlier(20000, l2=0.5)
+o2 <- routlier(20000, l2=2)
+
+require(reshape2)
+df <- melt(data.frame(o1=o1, o2=o2))
+colnames(df) <- c('sample', 'value')
+mean.o1.o2 <- aggregate(value ~ sample, data=df, FUN=mean)
+median.o1.o2 <- aggregate(value ~ sample, data=df, FUN=median)
+## hl.o1.o2 <- aggregate(value ~ sample, data=df, FUN=HodgesLehmann)
+
+ggplot(data=df, aes(x=value, color=sample)) +
+    theme(legend.position="bottom") + geom_density() +
+    geom_point(data=median.o1.o2,
+               aes(x=value, y=0, color=sample, shape="median"),
+               size=2.5, alpha=0.7) +
+    geom_point(data=mean.o1.o2,
+               aes(x=value, y=0, color=sample, shape="mean"),
+               size=2.5, alpha=0.7)
+
+ggsave('density.o1.o2.svg', width=svg.w, height=svg.h)
+ggsave('density.o1.o2.png', width=svg.w, height=svg.h)
+
+
+print(mean(o1) - mean(o2))
+print(median(o1) - median(o2))
+print(HodgesLehmann(o1, o2))
+print(HodgesLehmann(o2) - HodgesLehmann(o1))
+
+mean.s1.s2 <- aggregate(value ~ sample, data=df.s1.s2, FUN=mean)
+
+
+ggplot(data=df.s1.s2, aes(x=value, color=sample)) + stat_ecdf() +
+    theme(legend.position="bottom") +
+    guides(shape=guide_legend("Location Parameter")) +
+    geom_point(data=median.s1.s2,
+               aes(x=value, y=0, color=sample, shape="median"),
+               size=2.5, alpha=0.7) +
+    geom_point(data=mean.s1.s2,
+               aes(x=value, y=0, color=sample, shape="mean"),
+               size=2.5, alpha=0.7) +
+    geom_point(data=hl.s1.s2,
+               aes(x=value, y=0, color=sample, shape="HL"),
+               size=2.5, alpha=0.7)
+
+
+### Difference of Medians
+
+o3 <- routlier(20000, l2=2.0, fraction=0.49)
+o4 <- routlier(20000, l2=4.0, fraction=0.49)
+
+df <- melt(data.frame(o3=o3, o4=o4))
+colnames(df) <- c('sample', 'value')
+mean.o3.o4 <- aggregate(value ~ sample, data=df, FUN=mean)
+median.o3.o4 <- aggregate(value ~ sample, data=df, FUN=median)
+hl.o3.o4 <- aggregate(value ~ sample, data=df, FUN=HodgesLehmann)
+
+ggplot(data=df, aes(x=value, color=sample)) +
+    theme(legend.position="bottom") + geom_density() +
+    geom_point(data=median.o3.o4,
+               aes(x=value, y=0, color=sample, shape="median"),
+               size=3, alpha=0.6) +
+    geom_point(data=mean.o3.o4,
+               aes(x=value, y=0, color=sample, shape="mean"),
+               size=3, alpha=0.6)
+
+ggsave('density.o3.o3.svg', width=svg.w, height=svg.h)
+ggsave('density.o3.o3.png', width=svg.w, height=svg.h)
+
+print(median(o3) - median(o4))
+print(HodgesLehmann(o3, o4))
+
+qplot(x=sample(o3) - sample(o4), geom="density")
+
 ls()
 
 q(save='no')

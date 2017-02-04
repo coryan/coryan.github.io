@@ -27,11 +27,12 @@ necessary to have high confidence in the results.
 In this post I will choose the statistical test of hypothesis,
 and verify that the assumptions for the test hold.
 I will also familiarize myself with the test by using some mock data.
-This will address some of the issues raised in
-[Part 1](/2017/01/04/on-benchmarking-part-1/) of these series,
-specifically [[I10]][issue 10]: the lack of statistical significance
+This will address two of the issues raised in
+[Part 1](/2017/01/04/on-benchmarking-part-1/) of these series.
+Specifically [[I10]][issue 10]: the lack of statistical significance
 in the results, in other words, whether they can be explained by luck
-alone or not.
+alone or not, and [[I11]][issue 11]: justifying how I select the
+statistic to measure the effect.
 
 ## Modeling the Problem
 
@@ -59,12 +60,12 @@ as the [CLT](https://en.wikipedia.org/wiki/Central_limit_theorem)
 applies in a wide range of circumstances.
 
 But I have convinced myself, and hopefully the reader, that
-means is not a great statistic for this type of data.
+the mean is not a great statistic for this type of data.
 It is not a robust statistic, and outliers should be common because of
 the long tail in the data.
 I would prefer a more robust test.
 
-On the other had, the [Mann-Whitney U
+The [Mann-Whitney U
 Test](https://en.wikipedia.org/wiki/Mann%E2%80%93Whitney_U_test)
 is often recommended when the underlying distributions are not normal.
 It can be used to test the hypothesis that 
@@ -79,15 +80,11 @@ good bet that it is.
 The Mann-Whitney U test also requires me to make a relatively weak set
 of assumptions, which I will check next.
 
-### Assumption: The responses are ordinal.
+**Assumption: The responses are ordinal** This is trivial, the
+responses are real numbers that can be readily sorted.
 
-This is trivial, the responses are real numbers that can be readily
-sorted.
-
-### Assumption: Null Hypothesis
-
-I define the null hypothesis $$H_0$$ to match the requirements of the
-test:
+**Assumption: Null Hypothesis is of the right form** I define the null
+hypothesis $$H_0$$ to match the requirements of the test:
 
 $$P(A > M) = P(M > A)$$
 
@@ -95,10 +92,9 @@ Intuitively this definition is saying that the code changes
 had no effect, that both versions have the same probability of being
 faster than the other.
 
-### Assumption: Alternative Hypothesis
-
-I define the alternative hypothesis $$H_1$$ to match the assumptions
-of the test:
+**Assumption: Alternative Hypothesis is of the right form** I define
+the alternative hypothesis $$H_1$$ to match the assumptions of the
+test:
 
 $$P(A > M) \ne P(M > A)$$
 
@@ -112,10 +108,8 @@ that alternative hypothesis requires additional assumptions that I
 cannot make, specifically that the two distributions only differ by
 some location parameter.
 
-### Assumption: Random Samples from Populations
-
-The test assumes the samples are random and extracted from a single
-population.
+**Assumption: Random Samples from Populations** The test assumes the
+samples are random and extracted from a single population.
 It would be really bad, for example, if I grabbed half my samples from
 one population and half from another,
 that would break the "identically distributed" assumption that almost
@@ -129,11 +123,11 @@ I have already discussed the problems in biasing that my approach has.
 while not perfect, I believe it to be good enough for the time being,
 and will proceed under the assumption that no biases exist.
 
-### Assumption: All the observations are independent of each other.
-
-I left the more difficult one for last.
-The difficulty is that it is easy to see that each sample may affect
-the results of the next one.
+**Assumption: All the observations are independent of each other** I
+left the more difficult one for last.
+This is a non-trivial assumption in my case because one can reasonably
+argue that result of one experiment may affect the results of the next
+one.
 Running the benchmark populates the instruction and data cache,
 affects the state of the memory arena,
 and may change the
@@ -181,12 +175,13 @@ to set the P-state to a fixed value, and the results look much better:
 "Correlogram for the Initial Test Results")
 
 Other than the trivial autocorrelation at lag 0, the maximum
-autocorrelation for map and array is $$0.02$$.
+autocorrelation for map and array is $$0.02$$, that seems acceptably
+low to me.
 
 ### Measuring the Effect
 
 I have not yet declared how we are going to measure the effect.
-The standard statistic for this purpose is the
+The standard statistic to use in conjunction with Mann-Whitney U test is the
 [Hodges-Lehmann
 Estimator](https://en.wikipedia.org/wiki/Hodges%E2%80%93Lehmann_estimator).
 Its definition is relatively simple: take all the pairs formed by
@@ -204,8 +199,8 @@ and -- if $$HL\Delta$$ is negative -- then at least 50% of the time the
 I have to be careful, because I cannot make assertions about *all* of
 the time.  It is possible that the p51 of those differences of pairs
 is a large positive number, and we will see in the
-[Appendix](#more-than-the-location-parameter) that such results are quite
-possible.
+[Appendix](#appendix-learning-about-the-hodges-lehmann-estimator) that
+such results are quite possible.
 
 ## Applying the Test
 
@@ -815,6 +810,134 @@ higher.
 I should be careful in how I interpret the results of the Mann-Whitney
 U test when the distributions differ by more than just a location
 parameter.
+
+## Appendix: Learning about the Hodges-Lehmann Estimator
+
+Just like I did for the Mann-Whitney U test, I am going to use
+synthetic data to gain some intuition about how it works.
+I will try to test some of the better known estimators and see how
+they break down, and compare how Hodges-Lehmann works in those cases.
+
+### Comparing Hodges-Lehmann vs. Difference of Means
+
+I will start with a mixed distribution that includes mostly data
+following a Lognormal distribution, but also includes some outliers.
+This is what I expect to find in benchmarks that have not controlled
+their execution environment very well:
+
+``` r
+routlier <- function(n, scale=2000,
+                     s1=0.2, l1=0, s2=0.1, l2=1.0,
+                     fraction=0.01) {
+    g1 <- l1 + rlnorm((1.0 - fraction)*n, sdlog=s1)
+    g2 <- l2 + rlnorm(fraction*n, sdlog=s2)
+    v <- scale * append(g1, g2)
+    return(sample(v))
+}
+
+o1 <- routlier(20000)
+o2 <- routlier(20000, l2=10)
+```
+
+The bulk of these distributions Those two distributions appear fairly similar:
+
+![](/public/{{page.id}}/density.o1.o2.svg
+"Estimated Density of two Distributions with Outliers")
+
+However their means are fairly different:
+
+``` r
+print(mean(o2) - mea2(o1))
+```
+
+```
+[1] 27.27925
+```
+
+The median or the Hodges-Lehmann estimator produce a more intuitive
+result:
+
+``` r
+print(median(o2) - median(o1))
+print(HodgesLehmann(o1, o2))
+```
+
+```
+[1] 1.984693
+[1] 1.973359
+```
+
+I think this is a good time to point out that the Hodges-Lehmann
+estimator of two samples is not the same as the difference of the
+Hodges-Lehmann estimator of each sample:
+
+``` r
+print(HodgesLehmann(o2) - HodgesLehmann(o1))
+```
+
+```
+[1] -2.908595
+```
+
+Basically Hodges-Lehmann for one sample is the median of *averages*
+between pairs from the sample.  For two samples it is the median of
+the *differences*.
+
+### Comparing Hodges-Lehmann vs. the Difference of Medians
+
+As I suspected, the difference of means is not a great estimator of
+effect, it is not robust against outliers.  What about the difference
+of the medians?  Seems to work fine in the previous case.
+
+The example that gave me the most insight into why the median is not
+as good as I thought is this:
+
+``` r
+o3 <- routlier(20000, l2=2.0, fraction=0.49)
+o4 <- routlier(20000, l2=4.0, fraction=0.49)
+```
+
+![](/public/{{page.id}}/density.o3.o4.svg
+"Estimated Density of two Mixed Distributions with Similar Medians")
+
+The median of both is very similar, in fact *o3* seems to have a worse
+median:
+
+``` r
+print(median(o3) - median(o4))
+```
+
+```
+[1] 11.32098
+```
+
+But clearly *o3* has better performance.
+Unfortunately the median cannot detect that, the same thing that makes
+it robust against outliers makes it insensitive to changes in the top
+50% of the data.
+One might be tempted to use the mean instead, but we already know that
+the problems are there.
+
+The Hodges-Lehmann estimator readily detects the improvement:
+
+``` r
+print(HodgesLehmann(o3, o4))
+```
+
+```
+[1] -1020.568
+```
+
+I cannot claim that the Hodges-Lehmann estimator will work well in all
+cases.
+But I think it offers a nice combination of robustness and sensitivity
+to improvements in only part of the population.
+The
+[definition](https://en.wikipedia.org/wiki/Hodges%E2%80%93Lehmann_estimator#Definition)
+is a bit hard to get used to,
+but it matches what I think it is interesting in a benchmark:
+if I run with approach A vs. approach B, will be A faster than B most
+of the time?  And if so, by how much?
 
 ## Notes
 
