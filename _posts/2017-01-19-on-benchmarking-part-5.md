@@ -972,3 +972,4 @@ is randomly generated, the reader will not get the same results I did
 when executing the script to generate those graphs.
 
 [issue 10]: /2017/01/04/on-benchmarking-part-1/#bad-no-statistical-significance
+[issue 11]: /2017/01/04/on-benchmarking-part-1/#bad-median-not-justified
