@@ -449,8 +449,8 @@ ggplot(data=df, aes(x=value, color=sample)) +
                aes(x=value, y=0, color=sample, shape="mean"),
                size=3, alpha=0.6)
 
-ggsave('density.o3.o3.svg', width=svg.w, height=svg.h)
-ggsave('density.o3.o3.png', width=svg.w, height=svg.h)
+ggsave('density.o3.o4.svg', width=svg.w, height=svg.h)
+ggsave('density.o3.o4.png', width=svg.w, height=svg.h)
 
 print(median(o3) - median(o4))
 print(HodgesLehmann(o3, o4))
