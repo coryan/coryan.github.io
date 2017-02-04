@@ -1,7 +1,7 @@
 ---
 layout: post
 title: On Benchmarking, Part 5
-date: 2017-01-19 01:00
+date: 2017-02-04 15:00
 draft: true
 ---
 
@@ -314,12 +314,22 @@ the series:
 `array_based_order_book` against `map_based_order_book`, based on the
 Mann-Whitney U test, and shown that these results are very likely not
 explained by luck alone.
+I verified that the problem matches the necessary assumptions of the
+Mann-Whitney U test, and found a bug in my test framework in the
+process.
+
+* [[I11]][issue 11] I used the Hodges-Lehmann estimator to measure the
+effect, mostly because it is the recommended estimator for the
+Mann-Whitney U test.  In an
+[Appendix](#appendix-learning-about-the-hodges-lehmann-estimator)
+I show how this estimator is better than the difference of means and
+the difference of medians for this type of data.
 
 ## Next Up
 
-In the next post I would like to demonstrate how the technique can be
-applied to less obvious cases, such as small micro-optimizations where
-the effects are much smaller.
+In the next post I would like to show how to completely automate
+the executions of such benchmarks, and make it possible to any reader
+to run the tests themselves.
 
 ## Appendix: Familiarizing with the Mann-Whitney Test
 
