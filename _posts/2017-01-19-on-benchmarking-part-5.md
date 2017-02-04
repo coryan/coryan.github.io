@@ -930,8 +930,9 @@ print(HodgesLehmann(o3, o4))
 
 I cannot claim that the Hodges-Lehmann estimator will work well in all
 cases.
-But I think it offers a nice combination of robustness and sensitivity
-to improvements in only part of the population.
+But I think it offers a nice combination of being robust against
+outliers, while sensitive to improvements in only part of the
+population.
 The
 [definition](https://en.wikipedia.org/wiki/Hodges%E2%80%93Lehmann_estimator#Definition)
 is a bit hard to get used to,
