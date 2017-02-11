@@ -16,7 +16,7 @@ if (length(args) > 0 & args[1] == 'download') {
 }
 
 ## ... by default load the data from the GitHub pages site ...
-url <- 'http://coryan.github.io/public/2017/01/19/on-benchmarking-part-5/'
+url <- 'http://coryan.github.io/public/2017/02/04/on-benchmarking-part-5/'
 ni.filename <- 'data-ni.csv'
 data.filename <- 'data.csv'
 if (download) {
