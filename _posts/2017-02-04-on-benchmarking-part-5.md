@@ -27,7 +27,7 @@ In this post I will choose the statistical test of hypothesis,
 and verify that the assumptions for the test hold.
 I will also familiarize myself with the test by using some mock data.
 This will address two of the issues raised in
-[Part 1](/2017/01/04/on-benchmarking-part-1/) of these series.
+[Part 1](/2017/01/04/on-benchmarking-part-1/) of this series.
 Specifically [[I10]][issue 10]: the lack of statistical significance
 in the results, in other words, whether they can be explained by luck
 alone or not, and [[I11]][issue 11]: justifying how I select the
