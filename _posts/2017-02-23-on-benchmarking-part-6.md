@@ -100,12 +100,23 @@ pdf
 [1] "Using the Mann-Whitney U test, the null hypothesis that both the 'array' and 'map' based order books have the same performance is rejected at the desired significance (alpha=0.01, p-value=0 is smaller than alpha).  The effect is quantified using the Hodges-Lehmann estimator, which is compatible with the Mann-Whitney U test, with a value of -796.56 microseconds in the confidence interval=[-798.82,-794.3]"
 ```
 
+![](/public/{{page.id}}/data.plot.png
+"Raw Data Plots - No Obvious Correlation")
+
+![](/public/{{page.id}}/data.acf.svg
+"Correlogram - Confirms no Correlation")
+
+![](/public/{{page.id}}/boot.sd.png
+"Bootstrapping - Confirms Standard Deviation Estimates are Valid")
+
 ## Running on Cloud Virtual Machines
 
+[//]: # (PROJECT="jaybeams-150920")
+[//]: # (ZONE="us-central1-c")
 
 ```
-PROJECT="jaybeams-150920"
-ZONE="us-central1-c"
+PROJECT=[your project name here]
+ZONE=[your favorite zone here]
 PROJECTID=$(gcloud projects --quiet list | grep $PROJECT | awk '{print $3}')
 gcloud compute --project $PROJECT instances create "benchmark-runner-01" \
   --zone $ZONE --machine-type "n1-standard-2" --subnet "default" \
