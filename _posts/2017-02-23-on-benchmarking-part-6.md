@@ -1,11 +1,11 @@
 ---
 layout: post
 title: On Benchmarking, Part 6
-date: 2017-02-23 15:00
+date: 2017-02-20 17:00
 draft: true
 ---
 
-{% assign ghsha = "37afaedc278716258f4d46b348acb3cc13f7f1fa" %}
+{% assign ghsha = "78bdecd855aa9c25ce606cbe2f4ddaead35706f1" %}
 {% capture ghver %}https://github.com/coryan/jaybeams/blob/{{ghsha}}{% endcapture %}
 {% capture docker_tag %}{{ page.id  | remove_first: '/' | replace: '/', '-' }}{% endcapture %}
 
@@ -81,8 +81,10 @@ have fully solved the problems that arise when trying to use them.
 
 ## Towards Reproducible Benchmarks
 
-As a first step I have modified JayBeams to create *runtime* images
-with all the necessary code to run the benchmarks.
+As part of its continuous integration builds JayBeams creates
+*runtime* images with all the necessary code to run the benchmarks.
+I have manually tagged the images that I used in this post, with the
+post name, so they can be easily fetched.
 Assuming you have a Linux workstation (or server), with docker
 configured you should be able to execute the following commands to run
 the benchmark:
@@ -142,7 +144,32 @@ The resulting report is included
 [later](#report-for-workstation-resultscsv)
 in this post.
 
-## Running on Cloud Virtual Machines
+## Running on Public Cloud Virtual Machines
+
+Though the previous steps have addressed the problems with recreating
+the software stack used to run the benchmarks I have not addressed the
+problem of reproducing the hardware stack.
+
+I thought I could solve this problem using public cloud, such as
+[Amazon Web Services](https://aws.amazon.com/),
+or [Google Cloud Platform](https://cloud.google.com).
+Unfortunately I do not know (yet?) how to control the environment on a
+public cloud virtual machine to avoid auto-correlation in the sample
+data.
+
+Below I will document the steps to run the benchmark on a virtual
+machine,
+but I should warn the reader upfront that the results are suspect.
+
+The resulting report is included
+[later](#report-for-vm-resultscsv)
+in this post.
+
+### Create the Virtual Machine
+
+I have chosen Google's public cloud simply because I am more familiar
+with it, I make no claims as to whether it is better or worse than the
+alternatives.
 
 ``` sh
 # Set these environment variables based on your preferences
@@ -165,8 +192,11 @@ $ gcloud compute --project $PROJECT instances \
   --image-project "ubuntu-os-cloud" \
   --boot-disk-size "32" --boot-disk-type "pd-standard" \
   --boot-disk-device-name $VM
+```
 
-# Login to new VM and run some commands on it ...
+### Login and Run the Benchmark
+
+``` sh
 $ gcloud compute --project $PROJECT ssh \
   --ssh-flag=-A --zone $ZONE $VM
 $ sudo apt-get update && sudo apt-get install -y docker.io
@@ -176,7 +206,11 @@ $ sudo docker run --rm -i -t --cap-add sys_nice --privileged \
     coryan/jaybeams-runtime-ubuntu16.04:$TAG \
     /opt/jaybeams/bin/bm_order_book_generate.sh 100000
 $ exit
+```
 
+### Fetch the Results and Generate the Reports
+
+``` sh
 # Back in your workstation ...
 $ gcloud compute --project $PROJECT copy-files --zone $ZONE \
   $VM:bm_order_book_generate.1.results.csv \
@@ -187,21 +221,16 @@ $ sudo docker run --rm -i -t --volume $PWD:/home/jaybeams \
     public{{page.id}}/vm-results.csv \
     public{{page.id}}/vm \
     _includes/{{page.id}}/vm-report.mdw
+```
 
+### Cleanup
+
+``` sh
 # Delete the virtual machine
 $ gcloud compute --project $PROJECT \
     instances delete $VM --zone $ZONE
 ```
 
-The digest for the `coryan/jaybeams-runtime-ubuntu16.04:$TAG` docker image is:
-
-```
-sha256:c8adfd63c32420ddedc63a108c68c2fd45438171a536f0c5cde529cf6fb92a2c
-```
-
-The resulting report is included
-[later](#report-for-vm-resultscsv)
-in this post.
 
 ## Docker Image Creation
 
@@ -238,8 +267,8 @@ The only additional step is to tag the images used to create this
 report, so they are not lost in the midst of time:
 
 ``` sh
-TAG={{docker_tag}}
-for image in \
+$ TAG={{docker_tag}}
+$ for image in \
     coryan/jaybeams-analysis \
     coryan/jaybeams-runtime-fedora25 \
     coryan/jaybeams-runtime-ubuntu16.04; do
@@ -320,12 +349,24 @@ $ gcloud compute --project $PROJECT instances \
   --boot-disk-device-name $VM
 ```
 
-Then we connect to the virtual machine and install docker on it:
+Then we connect to the virtual machine:
 
 ``` sh
 $ gcloud compute --project $PROJECT ssh \
   --ssh-flag=-A --zone $ZONE $VM
-$ sudo apt-get update && sudo apt-get install -y docker.io
+```
+
+install the latest version of docker on the virtual machine:
+
+``` sh
+# ... these commands are on the virtual machine ..
+$ curl -fsSL https://apt.dockerproject.org/gpg | \
+    sudo apt-key add -
+$ sudo add-apt-repository \
+       "deb https://apt.dockerproject.org/repo/ \
+       ubuntu-$(lsb_release -cs) \
+       main"
+$ sudo apt-get update && sudo apt-get install -y docker-engine
 ```
 
 we set the build parameters:
@@ -347,6 +388,7 @@ Checkout the code:
 ``` sh
 $ git clone https://github.com/coryan/jaybeams.git
 $ cd jaybeams
+$ git checkout {{ghsha}}
 ```
 
 Download the build image and compile, test, and install the code in a
@@ -355,19 +397,25 @@ staging area:
 ``` sh
 $ sudo docker pull ${IMAGE?}
 $ sudo docker run --rm -it \
-  --env CONFIGUREFLAGS=${CONFIGUREFLAGS} \
-  --env CXX=${COMPILER?} \
-  --env CXXFLAGS="${CXXFLAGS}" \
-  --volume $PWD:$PWD \
-  --workdir $PWD \
-  ${IMAGE?} ci/build-in-docker.sh
+    --env CONFIGUREFLAGS=${CONFIGUREFLAGS} \
+    --env CXX=${COMPILER?} \
+    --env CXXFLAGS="${CXXFLAGS}" \
+    --volume $PWD:$PWD \
+    --workdir $PWD \
+    ${IMAGE?} ci/build-in-docker.sh
 ```
 
 To recreate the runtime image locally, this will not push to the
 github repository, because the github credentials are not provided:
 
 ``` sh
-$ ci/create-build-image.sh
+$ ci/create-runtime-image.sh
+```
+
+Likewise we can recreate the analysis image:
+
+``` sh
+$ ci/create-analysis-image.sh
 ```
 
 We can examine the images created so far:
