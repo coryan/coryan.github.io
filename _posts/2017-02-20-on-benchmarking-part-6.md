@@ -2,7 +2,6 @@
 layout: post
 title: On Benchmarking, Part 6
 date: 2017-02-20 17:00
-draft: true
 ---
 
 {% assign ghsha = "78bdecd855aa9c25ce606cbe2f4ddaead35706f1" %}
@@ -108,7 +107,7 @@ following command:
 ``` sh
 $ sudo docker inspect -f '{{ dockerid }}' \
     coryan/jaybeams-runtime-fedora25:$TAG
-sha256:e9005a2b9fd788deb0171494d303c0aeb0685b46cb8e620f069da5e6e29cd242
+sha256:641ea7fc96904f8b940afb0775d25b29fd54b8338ec7ba5aa0ce7cff77c3d0c7
 ```
 
 ### Reproduce the Analysis
@@ -122,7 +121,7 @@ $ cd $HOME
 $ sudo docker pull coryan/jaybeams-analysis:$TAG
 $ sudo docker inspect -f '{{ dockerid }}' \
     coryan/jaybeams-analysis:$TAG
-sha256:01ad76f9e70e46eb65f840ae36e2d9adc9e864ae93993d8f500172ab68c2d512
+sha256:7ecdbe5950fe8021ad133ae8acbd9353484dbb3883be89d976d93557e7271173
 ```
 
 First we copy the results produced earlier to a directory hierarchy
@@ -136,8 +135,8 @@ $ sudo docker run --rm -i -t --volume $PWD:/home/jaybeams \
     --workdir /home/jaybeams coryan/jaybeams-analysis:$TAG \
     /opt/jaybeams/bin/bm_order_book_analyze.R \
     public{{page.id}}/workstation-results.csv \
-    public{{page.id}}/workstation \
-    _includes/{{page.id}}/workstation-report.md
+    public{{page.id}}/workstation/ \
+    _includes{{page.id}}/workstation-report.md
 ```
 
 The resulting report is included
@@ -205,6 +204,9 @@ $ sudo docker run --rm -i -t --cap-add sys_nice --privileged \
     --volume $PWD:/home/jaybeams --workdir /home/jaybeams \
     coryan/jaybeams-runtime-ubuntu16.04:$TAG \
     /opt/jaybeams/bin/bm_order_book_generate.sh 100000
+$ sudo docker inspect -f '{{ dockerid }}' \
+    coryan/jaybeams-runtime-ubuntu16.04:$TAG
+sha256:c70b9d2d420bd18680828b435e8c39736e902b830426c27b4cf5ec32243438e4
 $ exit
 ```
 
@@ -212,15 +214,17 @@ $ exit
 
 ``` sh
 # Back in your workstation ...
+$ cd $HOME/coryan.github.io
 $ gcloud compute --project $PROJECT copy-files --zone $ZONE \
   $VM:bm_order_book_generate.1.results.csv \
-  public/{{page.id}}/vm-results.csv
+  public{{page.id}}/vm-results.csv
+$ TAG={{docker_tag}}
 $ sudo docker run --rm -i -t --volume $PWD:/home/jaybeams \
     --workdir /home/jaybeams coryan/jaybeams-analysis:$TAG \
     /opt/jaybeams/bin/bm_order_book_analyze.R \
     public{{page.id}}/vm-results.csv \
-    public{{page.id}}/vm \
-    _includes/{{page.id}}/vm-report.mdw
+    public{{page.id}}/vm/ \
+    _includes{{page.id}}/vm-report.md
 ```
 
 ### Cleanup
