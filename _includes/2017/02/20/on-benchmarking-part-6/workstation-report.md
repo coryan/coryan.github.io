@@ -46,8 +46,8 @@ kable(cbind(
 
 |      |Min. |1st Qu. |Median |Mean |3rd Qu. |Max. |
 |:-----|:----|:-------|:------|:----|:-------|:----|
-|array |222  |312     |404    |459  |548     |1590 |
-|map   |718  |1130    |1220   |1210 |1300    |2260 |
+|array |223  |310     |398    |454  |541     |1550 |
+|map   |718  |1110    |1190   |1190 |1270    |1960 |
 
 Then we visualize the density functions, if the data had extreme tails
 or other artifacts we would rejects it:
@@ -59,7 +59,7 @@ ggplot(data=data, aes(x=microseconds, color=book_type)) +
     facet_grid(book_type ~ .) + stat_density()
 {% endhighlight %}
 
-![plot of chunk unnamed-chunk-5](/public/2017/02/23/on-benchmarking-part-6/workstation/unnamed-chunk-5-1.svg)
+![plot of chunk unnamed-chunk-5](/public/2017/02/20/on-benchmarking-part-6/workstation/unnamed-chunk-5-1.svg)
 
 We also examine the boxplots of the data:
 
@@ -70,7 +70,7 @@ ggplot(data=data,
     theme(legend.position="bottom") + geom_boxplot()
 {% endhighlight %}
 
-![plot of chunk unnamed-chunk-6](/public/2017/02/23/on-benchmarking-part-6/workstation/unnamed-chunk-6-1.svg)
+![plot of chunk unnamed-chunk-6](/public/2017/02/20/on-benchmarking-part-6/workstation/unnamed-chunk-6-1.svg)
 
 ### Check Assumptions: Validate the Data is Independent
 
@@ -87,7 +87,7 @@ ggplot(data=data,
     facet_grid(book_type ~ .) + geom_point()
 {% endhighlight %}
 
-![plot of chunk unnamed-chunk-7](/public/2017/02/23/on-benchmarking-part-6/workstation/unnamed-chunk-7-1.png)
+![plot of chunk unnamed-chunk-7](/public/2017/02/20/on-benchmarking-part-6/workstation/unnamed-chunk-7-1.png)
 
 I would like an analytical test to validate the samples are
 indepedent,
@@ -111,13 +111,13 @@ Plot the correlograms:
 acf(data.array.ts)
 {% endhighlight %}
 
-![plot of chunk unnamed-chunk-9](/public/2017/02/23/on-benchmarking-part-6/workstation/unnamed-chunk-9-1.svg)
+![plot of chunk unnamed-chunk-9](/public/2017/02/20/on-benchmarking-part-6/workstation/unnamed-chunk-9-1.svg)
 
 {% highlight r %}
 acf(data.map.ts)
 {% endhighlight %}
 
-![plot of chunk unnamed-chunk-9](/public/2017/02/23/on-benchmarking-part-6/workstation/unnamed-chunk-9-2.svg)
+![plot of chunk unnamed-chunk-9](/public/2017/02/20/on-benchmarking-part-6/workstation/unnamed-chunk-9-2.svg)
 
 Compute the maximum auto-correlation factor, ignore the first value,
 because it is the auto-correlation at lag 0, which is always 1.0:
@@ -151,8 +151,7 @@ if (max.acf.array >= max.autocorrelation |
 
 
 {% highlight text %}
-## Warning: Some evidence of auto-correlation in the samples
-## max.acf.array=0.0213, max.acf.map=0.0536
+## PASSED: the samples do not exhibit high auto-correlation
 {% endhighlight %}
 
 I am going to proceed, even though the data on virtual machines tends
@@ -182,7 +181,7 @@ b.array <- boot(
 plot(b.array)
 {% endhighlight %}
 
-![plot of chunk unnamed-chunk-13](/public/2017/02/23/on-benchmarking-part-6/workstation/unnamed-chunk-13-1.png)
+![plot of chunk unnamed-chunk-13](/public/2017/02/20/on-benchmarking-part-6/workstation/unnamed-chunk-13-1.png)
 
 {% highlight r %}
 ci.array <- boot.ci(
@@ -195,7 +194,7 @@ b.map <- boot(
 plot(b.map)
 {% endhighlight %}
 
-![plot of chunk unnamed-chunk-13](/public/2017/02/23/on-benchmarking-part-6/workstation/unnamed-chunk-13-2.png)
+![plot of chunk unnamed-chunk-13](/public/2017/02/20/on-benchmarking-part-6/workstation/unnamed-chunk-13-2.png)
 
 {% highlight r %}
 ci.map <- boot.ci(
@@ -220,7 +219,7 @@ cat(estimated.sd)
 
 
 {% highlight text %}
-## 201
+## 197
 {% endhighlight %}
 
 ### Power Analysis: Determine Required Number of Samples
@@ -312,9 +311,9 @@ print(required.pwr.object)
 ## 
 ##      Two-sample t test power calculation 
 ## 
-##               n = 325.5
+##               n = 312.8
 ##           delta = 66.67
-##              sd = 201
+##              sd = 197
 ##       sig.level = 0.01
 ##           power = 0.95
 ##     alternative = two.sided
@@ -381,9 +380,9 @@ print(desired.pwr.object)
 ## 
 ##      Two-sample t test power calculation 
 ## 
-##               n = 32389
+##               n = 31112
 ##           delta = 6.667
-##              sd = 201
+##              sd = 197
 ##       sig.level = 0.01
 ##           power = 0.95
 ##     alternative = two.sided
@@ -391,7 +390,7 @@ print(desired.pwr.object)
 ## NOTE: n is number in *each* group
 {% endhighlight %}
 
-That is, we need at least 38000
+That is, we need at least 36000
 samples to detect the minimum interesting effect of 6.6667
 microseconds.
 Notice that our tests have 35000 samples.
@@ -415,7 +414,7 @@ if (desired.nsamples > length(data.array.ts) |
 
 {% highlight text %}
 ## Warning: Not enough samples in the data to detect the
-## minimum interating effect (6.67) should be >= 38000 map-
+## minimum interating effect (6.67) should be >= 36000 map-
 ## actual=35000 array-actual=35000
 {% endhighlight %}
 
@@ -432,7 +431,7 @@ data.mw <- wilcox.test(
 estimated.delta <- data.mw$estimate
 {% endhighlight %}
 
-The estimated effect is -787.875 microseconds, if this
+The estimated effect is -771.5501 microseconds, if this
 number is too small we need to stop the analysis:
 
 
@@ -452,7 +451,7 @@ if (abs(estimated.delta) < min.delta) {
 
 
 {% highlight text %}
-## PASSED: the estimated effect ( -787.9 ) is large enough.
+## PASSED: the estimated effect ( -771.5 ) is large enough.
 {% endhighlight %}
 
 Finally, the p-value determines if we can reject the null hypothesis
@@ -508,8 +507,8 @@ if (data.mw$p.value >= desired.significance) {
 ## The effect is quantified using the Hodges-Lehmann
 ## estimator, which is compatible with the
 ## Mann-Whitney U test, the estimator value
-## is -787.9 microseconds with a 95% confidence
-## interval of [-790.15,-785.59]
+## is -771.5 microseconds with a 95% confidence
+## interval of [-773.77,-769.32]
 {% endhighlight %}
 
 ### Mini-Colophon
@@ -533,12 +532,12 @@ devtools::session_info()
 
 {% highlight text %}
 ##  setting  value                       
-##  version  R version 3.3.2 (2016-10-31)
+##  version  R version 3.2.3 (2015-12-10)
 ##  system   x86_64, linux-gnu           
 ##  ui       X11                         
 ##  language (EN)                        
-##  collate  en_US.UTF-8                 
-##  tz       America/New_York            
+##  collate  C                           
+##  tz       Zulu                        
 ##  date     2017-02-20
 {% endhighlight %}
 
@@ -552,30 +551,27 @@ devtools::session_info()
 
 {% highlight text %}
 ##  package    * version date       source        
-##  assertthat   0.1     2013-12-06 CRAN (R 3.3.2)
-##  boot       * 1.3-18  2016-02-23 CRAN (R 3.3.2)
-##  colorspace   1.3-2   2016-12-14 CRAN (R 3.3.2)
-##  devtools   * 1.12.0  2016-12-05 CRAN (R 3.3.2)
-##  digest       0.6.12  2017-01-27 CRAN (R 3.3.2)
-##  evaluate     0.10    2016-10-11 CRAN (R 3.3.2)
-##  ggplot2    * 2.2.1   2016-12-30 CRAN (R 3.3.2)
-##  gtable       0.2.0   2016-02-26 CRAN (R 3.3.2)
-##  highr        0.6     2016-05-09 CRAN (R 3.3.2)
-##  httpuv       1.3.3   2015-08-04 CRAN (R 3.3.2)
-##  knitr      * 1.15.1  2016-11-22 CRAN (R 3.3.2)
-##  labeling     0.3     2014-08-23 CRAN (R 3.3.2)
-##  lazyeval     0.2.0   2016-06-12 CRAN (R 3.3.2)
-##  magrittr     1.5     2014-11-22 CRAN (R 3.3.2)
-##  memoise      1.0.0   2016-01-29 CRAN (R 3.3.2)
-##  munsell      0.4.3   2016-02-13 CRAN (R 3.3.2)
-##  plyr         1.8.4   2016-06-08 CRAN (R 3.3.2)
-##  pwr        * 1.2-0   2016-08-24 CRAN (R 3.3.2)
-##  Rcpp         0.12.9  2017-01-14 CRAN (R 3.3.2)
-##  reshape2     1.4.2   2016-10-22 CRAN (R 3.3.2)
-##  scales       0.4.1   2016-11-09 CRAN (R 3.3.2)
-##  servr        0.5     2016-12-10 CRAN (R 3.3.2)
-##  stringi      1.1.2   2016-10-01 CRAN (R 3.3.2)
-##  stringr      1.1.0   2016-08-19 CRAN (R 3.3.2)
-##  tibble       1.2     2016-08-26 CRAN (R 3.3.2)
-##  withr        1.0.2   2016-06-20 CRAN (R 3.3.2)
+##  Rcpp         0.12.3  2016-01-10 CRAN (R 3.2.3)
+##  boot       * 1.3-17  2015-06-29 CRAN (R 3.2.1)
+##  colorspace   1.2-4   2013-09-30 CRAN (R 3.1.0)
+##  devtools   * 1.12.0  2016-12-05 CRAN (R 3.2.3)
+##  digest       0.6.9   2016-01-08 CRAN (R 3.2.3)
+##  evaluate     0.10    2016-10-11 CRAN (R 3.2.3)
+##  ggplot2    * 2.0.0   2015-12-18 CRAN (R 3.2.3)
+##  gtable       0.1.2   2012-12-05 CRAN (R 3.0.0)
+##  highr        0.6     2016-05-09 CRAN (R 3.2.3)
+##  httpuv       1.3.3   2015-08-04 CRAN (R 3.2.3)
+##  knitr      * 1.15.1  2016-11-22 CRAN (R 3.2.3)
+##  labeling     0.3     2014-08-23 CRAN (R 3.1.1)
+##  magrittr     1.5     2014-11-22 CRAN (R 3.2.1)
+##  memoise      1.0.0   2016-01-29 CRAN (R 3.2.3)
+##  munsell      0.4.2   2013-07-11 CRAN (R 3.0.2)
+##  plyr         1.8.3   2015-06-12 CRAN (R 3.2.1)
+##  pwr        * 1.2-0   2016-08-24 CRAN (R 3.2.3)
+##  reshape2     1.4     2014-04-23 CRAN (R 3.1.0)
+##  scales       0.3.0   2015-08-25 CRAN (R 3.2.3)
+##  servr        0.5     2016-12-10 CRAN (R 3.2.3)
+##  stringi      1.0-1   2015-10-22 CRAN (R 3.2.2)
+##  stringr      1.0.0   2015-04-30 CRAN (R 3.2.2)
+##  withr        1.0.2   2016-06-20 CRAN (R 3.2.3)
 {% endhighlight %}
