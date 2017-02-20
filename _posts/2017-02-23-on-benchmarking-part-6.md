@@ -5,9 +5,11 @@ date: 2017-02-23 15:00
 draft: true
 ---
 
-{% assign ghsha = "e444f0f072c1e705d932f1c2173e8c39f7aeb663" %}
+{% assign ghsha = "37afaedc278716258f4d46b348acb3cc13f7f1fa" %}
 {% capture ghver %}https://github.com/coryan/jaybeams/blob/{{ghsha}}{% endcapture %}
-{% capture docker_tag %}2017-02-23-on-benchmarking-part-6{% endcapture %}
+{% capture docker_tag %}{{ page.id  | remove_first: '/' | replace: '/', '-' }}{% endcapture %}
+
+
 
 > This is a long series of posts where I try to teach myself how to
 > run rigorous, reproducible microbenchmarks on Linux.  You may
@@ -104,7 +106,7 @@ following command:
 ``` sh
 $ sudo docker inspect -f '{{ dockerid }}' \
     coryan/jaybeams-runtime-fedora25:$TAG
-sha256:7e7c5e91f2e46b902144d1de4b41b3d02407c38a56b1f58c27576012c0226d24
+sha256:e9005a2b9fd788deb0171494d303c0aeb0685b46cb8e620f069da5e6e29cd242
 ```
 
 ### Reproduce the Analysis
@@ -133,23 +135,27 @@ $ sudo docker run --rm -i -t --volume $PWD:/home/jaybeams \
     /opt/jaybeams/bin/bm_order_book_analyze.R \
     public{{page.id}}/workstation-results.csv \
     public{{page.id}}/workstation \
-    _includes/{{page.id}}/workstation-report
+    _includes/{{page.id}}/workstation-report.md
 ```
 
-{% include {{page.id}}/workstation-report.md %}
+The resulting report is included
+[later](#report-for-workstation-resultscsv)
+in this post.
 
 ## Running on Cloud Virtual Machines
 
-[//]: # (PROJECT="jaybeams-150920")
-[//]: # (ZONE="us-central1-c")
-
 ``` sh
+# Set these environment variables based on your preferences
+# for Google Cloud Platform
 $ PROJECT=[your project name here]
 $ ZONE=[your favorite zone here]
 $ PROJECTID=$(gcloud projects --quiet list | grep $PROJECT | \
     awk '{print $3}')
+
+# Create a virtual machine to run the benchmark
+$ VM=benchmark-runner
 $ gcloud compute --project $PROJECT instances \
-  create "benchmark-runner" \
+  create $VM \
   --zone $ZONE --machine-type "n1-standard-2" --subnet "default" \
   --maintenance-policy "MIGRATE" \
   --scopes "https://www.googleapis.com/auth/cloud-platform" \
@@ -158,53 +164,232 @@ $ gcloud compute --project $PROJECT instances \
   --image "ubuntu-1604-xenial-v20170202" \
   --image-project "ubuntu-os-cloud" \
   --boot-disk-size "32" --boot-disk-type "pd-standard" \
-  --boot-disk-device-name "benchmark-runner"
+  --boot-disk-device-name $VM
 
 # Login to new VM and run some commands on it ...
 $ gcloud compute --project $PROJECT ssh \
-  --ssh-flag=-A --zone $ZONE "benchmark-runner"
-$ sudo apt-get update
-$ sudo apt-get install -y docker.io
+  --ssh-flag=-A --zone $ZONE $VM
+$ sudo apt-get update && sudo apt-get install -y docker.io
 $ TAG={{docker_tag}}
 $ sudo docker run --rm -i -t --cap-add sys_nice --privileged \
     --volume $PWD:/home/jaybeams --workdir /home/jaybeams \
     coryan/jaybeams-runtime-ubuntu16.04:$TAG \
-    /opt/jaybeams/bin/bm_order_book_generate.sh
+    /opt/jaybeams/bin/bm_order_book_generate.sh 100000
 $ exit
 
 # Back in your workstation ...
 $ gcloud compute --project $PROJECT copy-files --zone $ZONE \
-  benchmark-runner:bm_order_book_generate.1.results.csv \
+  $VM:bm_order_book_generate.1.results.csv \
   public/{{page.id}}/vm-results.csv
 $ sudo docker run --rm -i -t --volume $PWD:/home/jaybeams \
     --workdir /home/jaybeams coryan/jaybeams-analysis:$TAG \
     /opt/jaybeams/bin/bm_order_book_analyze.R \
     public{{page.id}}/vm-results.csv \
-    public{{page.id}}/vm
-    _includes/{{page.id}}/vm-report
+    public{{page.id}}/vm \
+    _includes/{{page.id}}/vm-report.mdw
 
+# Delete the virtual machine
+$ gcloud compute --project $PROJECT \
+    instances delete $VM --zone $ZONE
+```
+
+The digest for the `coryan/jaybeams-runtime-ubuntu16.04:$TAG` docker image is:
+
+```
+sha256:c8adfd63c32420ddedc63a108c68c2fd45438171a536f0c5cde529cf6fb92a2c
+```
+
+The resulting report is included
+[later](#report-for-vm-resultscsv)
+in this post.
+
+## Docker Image Creation
+
+All that remains at this point is to describe how the images
+themselves are created.
+I automated the process to create images as part of the continuous
+integration builds for JayBeams.
+After each commit to the `master`
+branch [travis](https://travis-ci.org/coryan/jaybeams) checks out the
+code, uses an existing development environment to compile and test the
+code, and then creates the runtime and analysis images.
+
+If the runtime and analysis images differ from the existing images in
+the github [repository](https://hub.docker.com/u/coryan/) the new
+images are automatically pushed to the github repository.
+
+If necessary, a new development image is also created as part of the
+continuous integration build.
+This means that the development image might be one build behind,
+as the latest runtime and analysis images may have been created with a
+previous build image.
+I have an outstanding
+[bug](https://github.com/coryan/jaybeams/issues/129) to fix this problem.
+In practice this is not a major issue because the development
+environment changes rarely.
+
+An [appendix](#appendix-manual-image-creation) to this post includes
+step-by-step instructions on what the automated continuous integration
+build does.
+
+### Tagging Images for Final Report
+
+The only additional step is to tag the images used to create this
+report, so they are not lost in the midst of time:
+
+``` sh
+TAG={{docker_tag}}
+for image in \
+    coryan/jaybeams-analysis \
+    coryan/jaybeams-runtime-fedora25 \
+    coryan/jaybeams-runtime-ubuntu16.04; do
+  sudo docker pull ${image}:latest
+  sudo docker tag ${image}:latest ${image}:$TAG
+  sudo docker push ${image}:$TAG
+done
 ```
 
 ## Summary
 
+In this post I addressed the last remaining issue identified at the
+[beginning](/2017/01/04/on-benchmarking-part-1/) of this series.
+I have made the tests as reproducible as I know how.
+A reader can execute the tests in a public cloud server, or if they
+prefer on their own Linux workstation, by downloading and executing
+pre-compiled images.
+
+It is impossible to predict for how long those images will remain
+usable, but they certainly go a long way to make the tests and
+analysis completely scripted.
+
+Furthermore, the code to create the images themselves has been fully
+automated.
+
 ## Next Up
+
+I will be taking a break from posting about benchmarks and statistics,
+I want to go back to writing some code, more than talking about how to
+measure code.
 
 ## Notes
 
 All the code for this post is available from the
 [{{ghsha}}](https://github.com/coryan/jaybeams/tree/{{ghsha}})
-version of JayBeams.
+version of JayBeams, including the `Dockerfile`s used to create the
+images.
+
+The images themselves were automatically created using
+[travis.org](https://travis.org), a service for continuous
+integration.
+The travis configuration file and helper script are also part of the
+code for JayBeams.
+
+The data used generated and used in this post is also available:
+[workstation-results.csv](/public/{{page.id}}/workstation-results.csv),
+and [vm-results.csv](/public/{{page.id}}/workstation-results.csv).
 
 Metadata about the tests, including platform details can be found in
-comments embedded with the data file.
-The highlights of that metadata is reproduced here:
-
-* CPU: AMD A8-3870 CPU @ 3.0Ghz
-* Memory: 16GiB DDR3 @ 1333 Mhz, in 4 DIMMs.
-* Operating System: Linux (Fedora 25, 4.9.6-200.fc25.x86_64)
-* C Library: glibc-2.24-3.fc25.x86_64
-* C++ Library: libstdc++-6.3.1-1.fc25
-* Compiler: gcc 6.3.1 20161221
-* Compiler Options: -O3 -Wall -Wno-deprecated-declarations
+comments embedded with the data files.
 
 [issue 12]: /2017/01/04/on-benchmarking-part-1/#bad-not-reproducible
+
+### Appendix: Manual Image Creation
+
+Normally the images are created by an automated build, but for
+completeness we document the steps to create one of the runtime images
+here.
+We assume the system has been configured to run docker, and the
+desired version of JayBeams has been checked out in the current
+directory.
+
+First we create a virtual machine, that guarantees that we do not have
+hidden dependencies on previously installed tools or configurations:
+
+``` sh
+$ VM=jaybeams-build
+$ gcloud compute --project $PROJECT instances \
+  create $VM \
+  --zone $ZONE --machine-type "n1-standard-2" --subnet "default" \
+  --maintenance-policy "MIGRATE" \
+  --scopes "https://www.googleapis.com/auth/cloud-platform" \
+  --service-account \
+    ${PROJECTID}-compute@developer.gserviceaccount.com \
+  --image "ubuntu-1604-xenial-v20170202" \
+  --image-project "ubuntu-os-cloud" \
+  --boot-disk-size "32" --boot-disk-type "pd-standard" \
+  --boot-disk-device-name $VM
+```
+
+Then we connect to the virtual machine and install docker on it:
+
+``` sh
+$ gcloud compute --project $PROJECT ssh \
+  --ssh-flag=-A --zone $ZONE $VM
+$ sudo apt-get update && sudo apt-get install -y docker.io
+```
+
+we set the build parameters:
+
+``` sh
+$ export IMAGE=coryan/jaybeamsdev-ubuntu16.04 \
+    COMPILER=g++ \
+    CXXFLAGS=-O3 \
+    CONFIGUREFLAGS="" \
+    CREATE_BUILD_IMAGE=yes \
+    CREATE_RUNTIME_IMAGE=yes \
+    CREATE_ANALYSIS_IMAGE=yes \
+    TRAVIS_BRANCH=master \
+    TRAVIS_PULL_REQUEST=false
+```
+
+Checkout the code:
+
+``` sh
+$ git clone https://github.com/coryan/jaybeams.git
+$ cd jaybeams
+```
+
+Download the build image and compile, test, and install the code in a
+staging area:
+
+``` sh
+$ sudo docker pull ${IMAGE?}
+$ sudo docker run --rm -it \
+  --env CONFIGUREFLAGS=${CONFIGUREFLAGS} \
+  --env CXX=${COMPILER?} \
+  --env CXXFLAGS="${CXXFLAGS}" \
+  --volume $PWD:$PWD \
+  --workdir $PWD \
+  ${IMAGE?} ci/build-in-docker.sh
+```
+
+To recreate the runtime image locally, this will not push to the
+github repository, because the github credentials are not provided:
+
+``` sh
+$ ci/create-build-image.sh
+```
+
+We can examine the images created so far:
+
+``` sh
+$ sudo docker images
+```
+
+Before we exit and delete the virtual machine:
+
+``` sh
+$ exit
+
+# ... back on your workstation ...
+$ gcloud compute --project $PROJECT \
+    instances delete $VM --zone $ZONE
+```
+
+----
+
+{% include {{page.id}}/workstation-report.md %}
+
+----
+
+{% include {{page.id}}/vm-report.md %}

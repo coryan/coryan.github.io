@@ -1,4 +1,4 @@
-## Report for workstation-results.csv
+## Report for vm-results.csv
 
 
 
@@ -46,8 +46,8 @@ kable(cbind(
 
 |      |Min. |1st Qu. |Median |Mean |3rd Qu. |Max. |
 |:-----|:----|:-------|:------|:----|:-------|:----|
-|array |222  |312     |404    |459  |548     |1590 |
-|map   |718  |1130    |1220   |1210 |1300    |2260 |
+|array |237  |303     |371    |411  |476     |1920 |
+|map   |653  |856     |954    |969  |1060    |3600 |
 
 Then we visualize the density functions, if the data had extreme tails
 or other artifacts we would rejects it:
@@ -59,7 +59,7 @@ ggplot(data=data, aes(x=microseconds, color=book_type)) +
     facet_grid(book_type ~ .) + stat_density()
 {% endhighlight %}
 
-![plot of chunk unnamed-chunk-5](/public/2017/02/23/on-benchmarking-part-6/workstation/unnamed-chunk-5-1.svg)
+![plot of chunk unnamed-chunk-5](/public/2017/02/23/on-benchmarking-part-6/vm/unnamed-chunk-5-1.svg)
 
 We also examine the boxplots of the data:
 
@@ -70,7 +70,7 @@ ggplot(data=data,
     theme(legend.position="bottom") + geom_boxplot()
 {% endhighlight %}
 
-![plot of chunk unnamed-chunk-6](/public/2017/02/23/on-benchmarking-part-6/workstation/unnamed-chunk-6-1.svg)
+![plot of chunk unnamed-chunk-6](/public/2017/02/23/on-benchmarking-part-6/vm/unnamed-chunk-6-1.svg)
 
 ### Check Assumptions: Validate the Data is Independent
 
@@ -87,7 +87,7 @@ ggplot(data=data,
     facet_grid(book_type ~ .) + geom_point()
 {% endhighlight %}
 
-![plot of chunk unnamed-chunk-7](/public/2017/02/23/on-benchmarking-part-6/workstation/unnamed-chunk-7-1.png)
+![plot of chunk unnamed-chunk-7](/public/2017/02/23/on-benchmarking-part-6/vm/unnamed-chunk-7-1.png)
 
 I would like an analytical test to validate the samples are
 indepedent,
@@ -111,13 +111,13 @@ Plot the correlograms:
 acf(data.array.ts)
 {% endhighlight %}
 
-![plot of chunk unnamed-chunk-9](/public/2017/02/23/on-benchmarking-part-6/workstation/unnamed-chunk-9-1.svg)
+![plot of chunk unnamed-chunk-9](/public/2017/02/23/on-benchmarking-part-6/vm/unnamed-chunk-9-1.svg)
 
 {% highlight r %}
 acf(data.map.ts)
 {% endhighlight %}
 
-![plot of chunk unnamed-chunk-9](/public/2017/02/23/on-benchmarking-part-6/workstation/unnamed-chunk-9-2.svg)
+![plot of chunk unnamed-chunk-9](/public/2017/02/23/on-benchmarking-part-6/vm/unnamed-chunk-9-2.svg)
 
 Compute the maximum auto-correlation factor, ignore the first value,
 because it is the auto-correlation at lag 0, which is always 1.0:
@@ -152,7 +152,7 @@ if (max.acf.array >= max.autocorrelation |
 
 {% highlight text %}
 ## Warning: Some evidence of auto-correlation in the samples
-## max.acf.array=0.0213, max.acf.map=0.0536
+## max.acf.array=0.0201, max.acf.map=0.0745
 {% endhighlight %}
 
 I am going to proceed, even though the data on virtual machines tends
@@ -182,7 +182,7 @@ b.array <- boot(
 plot(b.array)
 {% endhighlight %}
 
-![plot of chunk unnamed-chunk-13](/public/2017/02/23/on-benchmarking-part-6/workstation/unnamed-chunk-13-1.png)
+![plot of chunk unnamed-chunk-13](/public/2017/02/23/on-benchmarking-part-6/vm/unnamed-chunk-13-1.png)
 
 {% highlight r %}
 ci.array <- boot.ci(
@@ -195,7 +195,7 @@ b.map <- boot(
 plot(b.map)
 {% endhighlight %}
 
-![plot of chunk unnamed-chunk-13](/public/2017/02/23/on-benchmarking-part-6/workstation/unnamed-chunk-13-2.png)
+![plot of chunk unnamed-chunk-13](/public/2017/02/23/on-benchmarking-part-6/vm/unnamed-chunk-13-2.png)
 
 {% highlight r %}
 ci.map <- boot.ci(
@@ -220,7 +220,7 @@ cat(estimated.sd)
 
 
 {% highlight text %}
-## 201
+## 162
 {% endhighlight %}
 
 ### Power Analysis: Determine Required Number of Samples
@@ -312,9 +312,9 @@ print(required.pwr.object)
 ## 
 ##      Two-sample t test power calculation 
 ## 
-##               n = 325.5
+##               n = 212
 ##           delta = 66.67
-##              sd = 201
+##              sd = 162
 ##       sig.level = 0.01
 ##           power = 0.95
 ##     alternative = two.sided
@@ -381,9 +381,9 @@ print(desired.pwr.object)
 ## 
 ##      Two-sample t test power calculation 
 ## 
-##               n = 32389
+##               n = 21040
 ##           delta = 6.667
-##              sd = 201
+##              sd = 162
 ##       sig.level = 0.01
 ##           power = 0.95
 ##     alternative = two.sided
@@ -391,10 +391,10 @@ print(desired.pwr.object)
 ## NOTE: n is number in *each* group
 {% endhighlight %}
 
-That is, we need at least 38000
+That is, we need at least 25000
 samples to detect the minimum interesting effect of 6.6667
 microseconds.
-Notice that our tests have 35000 samples.
+Notice that our tests have 100000 samples.
 
 
 {% highlight r %}
@@ -414,9 +414,7 @@ if (desired.nsamples > length(data.array.ts) |
 
 
 {% highlight text %}
-## Warning: Not enough samples in the data to detect the
-## minimum interating effect (6.67) should be >= 38000 map-
-## actual=35000 array-actual=35000
+## PASSED: The samples have the minimum required power
 {% endhighlight %}
 
 ### Run the Statistical Test
@@ -432,7 +430,7 @@ data.mw <- wilcox.test(
 estimated.delta <- data.mw$estimate
 {% endhighlight %}
 
-The estimated effect is -787.875 microseconds, if this
+The estimated effect is -563.038 microseconds, if this
 number is too small we need to stop the analysis:
 
 
@@ -452,7 +450,7 @@ if (abs(estimated.delta) < min.delta) {
 
 
 {% highlight text %}
-## PASSED: the estimated effect ( -787.9 ) is large enough.
+## PASSED: the estimated effect ( -563 ) is large enough.
 {% endhighlight %}
 
 Finally, the p-value determines if we can reject the null hypothesis
@@ -508,8 +506,8 @@ if (data.mw$p.value >= desired.significance) {
 ## The effect is quantified using the Hodges-Lehmann
 ## estimator, which is compatible with the
 ## Mann-Whitney U test, the estimator value
-## is -787.9 microseconds with a 95% confidence
-## interval of [-790.15,-785.59]
+## is -563 microseconds with a 95% confidence
+## interval of [-564.27,-561.81]
 {% endhighlight %}
 
 ### Mini-Colophon
