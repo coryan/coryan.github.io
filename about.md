@@ -22,7 +22,7 @@ Who am I?
 A husband, a father, a former rock climber, a former cross-fitter.
 This blog will likely deal mostly with my software development
 interests, so for those purposes:  a software engineering manager by
-trade.  A sofware engineer by training and inclination.  I currently
+trade.  A software engineer by training and inclination.  I currently
 work for Google, leading a few Site-Reliability Engineering (SRE) teams.
 Before that I worked for a decade in high-frequency trading leading a
 few software engineering and Ops teams.
@@ -57,7 +57,7 @@ I have been known to craft a webpage or two, but they do not look
 nice.  If this one does, is because I took the templates from
 [Lanyon](http://lanyon.getpoole.com/) and did not mess with them (too much).
 Their [License](/Third-Party-Licenses.md) is reproduced on this site.  I
-have been known to craft a GUI or two, but the 
+have been known to craft a GUI or two, but the
 last time was on X11/Motif, and (you can laugh) most of the graphics
 were plain Xlib, with some OpenGL added later.  That is to say, I
 have been mostly building and/or leading teams that build "infrastructure
