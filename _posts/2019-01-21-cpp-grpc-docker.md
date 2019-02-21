@@ -32,7 +32,7 @@ To make the build easy to reproduce, we will first create a Docker image
 containing all the development tools. I expect that this image will be rather
 large, as the development tools, plus libraries, plus headers can take
 significant space. The trick is to use Docker
-[multi-stage builds][https://docs.docker.com/develop/develop-images/multistage-build/]
+[multi-stage builds][multistage-link]
 to first compile the server using this large image, and then copy only the
 server binary into a much smaller Docker image.
 
@@ -202,6 +202,7 @@ service.
 [cmake-link]: https://cmake.org
 [glibc-dynamic-faq]: https://sourceware.org/glibc/wiki/FAQ#Even_statically_linked_programs_need_some_shared_libraries_which_is_not_acceptable_for_me.__What_can_I_do.3F
 [k8s-link]: https://kubernetes.io
+[multistage-link]: https://docs.docker.com/develop/develop-images/multistage-build/
 [ninja-link]: https://ninja-build.org
 [vcpkg-link]: https://github.com/Microsoft/vcpkg/
 [wikipedia-glibc]: https://en.wikipedia.org/wiki/GNU_C_Library
